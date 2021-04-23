@@ -220,6 +220,13 @@ void WbControlledWorld::addControllerConnection() {
       delete[] buffer;
     }
     foreach (WbRobot *const robot, robots()) {
+      if (robotName == robot->name() && robot->controllerName() == "<extern>" && robot->isControllerStarted()) {
+        updateRobotController(robot);
+        WbLog::info(tr("Restarting extern controller connection for robot \"%1\".").arg(robot->name()));
+        mRobotsWaitingExternController.append(robot);
+        startControllerFromSocket(robot, socket);
+        return;
+      }
       if (robot->isControllerStarted())
         continue;
       if ((robotName == robot->name() || robotName.isEmpty()) && robot->controllerName() == "<extern>") {

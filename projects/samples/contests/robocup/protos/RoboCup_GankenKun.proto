@@ -8,14 +8,14 @@
 # translation, rotation, name and controllerArgs fields, so that they can
 # be properly inserted into Robocup games.
 
-PROTO RobocupRobot [
+PROTO RoboCup_GankenKun [
   field SFVec3f                 translation    0 0 0   # Is `Transform.translation`.
   field SFRotation              rotation       0 0 1 0 # Is `Transform.rotation`.
-  field SFString                name           ""      # Is `Solid.name`.
+  field SFString                name           "blue player 2"      # Is `Solid.name`.
   field MFString                controllerArgs []      # Is `Robot.controllerArgs`.
 ]
 {
-  Darwin-opHinge2Robocup {
+  GankenKun {
     translation IS translation
     rotation IS rotation
     name IS name
@@ -24,7 +24,7 @@ PROTO RobocupRobot [
     selfCollision TRUE
     cameraWidth 320
     cameraHeight 240
-    backlash FALSE
+    enable_backlash FALSE
     %{
       if fields.name.value ~= '' then
         -- name is supposed to be something like "red player 2" or "blue player 1"
@@ -33,11 +33,14 @@ PROTO RobocupRobot [
         local color = words[1]
         local number = words[3]
     }%
-    jersey RobotisJersey {
-      jerseyTexture [
-        %{='"textures/robotis-op2_' .. number .. '_' .. color .. '.png"'}%
-      ]
-    }
+    jerseyTexture [
+      %{='"textures/GankenKun_' .. color .. number .. '.png"'}%
+    ]
+    %{ if color == "red" then }%
+      jerseyColor 1, 0, 0
+    %{ else }%
+      jerseyColor 0, 0, 1
+    %{ end }%
     %{
       end
     }%

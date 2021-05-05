@@ -2,7 +2,7 @@
   "type": "NORMAL",
   "kickoff": "red",
   "class": "KID",
-  "host": "192.168.123.11",
+  "host": "127.0.1.1",
   "real_time_factor": 0,
   "side_left": "blue",
   "press_a_key_to_terminate": true,

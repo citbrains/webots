@@ -2,8 +2,8 @@
   "type": "NORMAL",
   "kickoff": "red",
   "class": "KID",
-  "host": "127.0.1.1",
-  "real_time_factor": 0,
+  "host": "192.168.123.11",
+  "minimum_real_time_factor": 0,
   "side_left": "blue",
   "press_a_key_to_terminate": true,
   "game_controller_synchronization": true,
@@ -26,7 +26,7 @@
   },
   "blue": {
     "id": 25,
-    "config": "cit_brains.json",
+    "config": "team_2.json",
     "hosts": [
       "127.0.0.1",
       "192.168.123.41",

@@ -2,7 +2,7 @@
   "type": "NORMAL",
   "kickoff": "red",
   "class": "KID",
-  "host": "192.168.123.11",
+  "host": "127.0.1.1",
   "minimum_real_time_factor": 0,
   "side_left": "blue",
   "press_a_key_to_terminate": true,
@@ -26,7 +26,7 @@
   },
   "blue": {
     "id": 25,
-    "config": "team_2.json",
+    "config": "cit_brains.json",
     "hosts": [
       "127.0.0.1",
       "192.168.123.41",

@@ -153,6 +153,7 @@ def spawn_team(team, red_on_right, children):
         string += '] }}'
         children.importMFNodeFromString(-1, string)
         team['players'][number]['robot'] = supervisor.getFromDef(defname)
+        team['players'][number]['position'] = team['players'][number]['robot'].getCenterOfMass()
         info(f'Spawned {defname} {model} on port {port} at halfTimeStartingPose: translation (' +
              f'{halfTimeStartingTranslation[0]} {halfTimeStartingTranslation[1]} {halfTimeStartingTranslation[2]}), ' +
              f'rotation ({halfTimeStartingRotation[0]} {halfTimeStartingRotation[1]} {halfTimeStartingRotation[2]} ' +
@@ -1785,7 +1786,7 @@ if hasattr(game, 'record_simulation'):
 
 previous_real_time = time.time()
 while supervisor.step(time_step) != -1 and not game.over:
-    if hasattr(game, 'max_duration') and (time.time() - log.start_time) > game.max_duration:
+    if hasattr(game, 'max_duration') and (time.time() - log.real_time) > game.max_duration:
         info(f'Interrupting game automatically after {game.max_duration} seconds')
         break
     game_controller_send(f'CLOCK:{time_count}')

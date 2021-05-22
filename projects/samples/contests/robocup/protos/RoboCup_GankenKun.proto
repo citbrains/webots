@@ -22,8 +22,8 @@ PROTO RoboCup_GankenKun [
     controllerArgs IS controllerArgs
     controller "player"
     selfCollision TRUE
-    cameraWidth 320
-    cameraHeight 240
+    cameraWidth 640
+    cameraHeight 480
     enable_backlash FALSE
     %{
       if fields.name.value ~= '' then

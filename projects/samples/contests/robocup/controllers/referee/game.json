@@ -2,12 +2,11 @@
   "type": "NORMAL",
   "kickoff": "red",
   "class": "KID",
-  "host": "127.0.0.1",
+  "host": "192.168.123.100",
   "minimum_real_time_factor": 0,
   "side_left": "blue",
   "press_a_key_to_terminate": true,
   "game_controller_synchronization": true,
-  "use_bouncing_server": true,
   "red": {
     "id": 8,
     "config": "team_1.json",
@@ -43,4 +42,3 @@
     ]
   }
 }
-

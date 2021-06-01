@@ -3,8 +3,8 @@
   "players": {
     "1": {
       "proto": "RoboCup_GankenKun",
-      "dockerImg": "CITBrains_GankenKun",
-      "dockerCmd": "launchRobot.sh --goalie",
+      "dockerTag": "latest",
+      "dockerCmd": "runall.sh GCGK",
       "halfTimeStartingPose": {
         "translation": [-3.5, -3.1, 0.439],
         "rotation": [0, 0, 1, 1.57]
@@ -16,12 +16,16 @@
       "shootoutStartingPose": {
         "translation": [2.0, 0.0, 0.439],
         "rotation": [0, 0, 1, 0.0]
+      },
+      "goalKeeperStartingPose": {
+        "translation": [-4.47, 0, 0.24],
+        "rotation": [0, 0, 1, 0]
       }
     },
     "2": {
       "proto": "RoboCup_GankenKun",
-      "dockerImg": "CITBrains_GankenKun",
-      "dockerCmd": "launchRobot.sh --fieldPlayer",
+      "dockerTag": "latest",
+      "dockerCmd": "runall.sh GC",
       "halfTimeStartingPose": {
         "translation": [-3.5, 3.1, 0.439],
         "rotation": [0, 0, 1, -1.57]
@@ -33,12 +37,16 @@
       "shootoutStartingPose": {
         "translation": [2.0, 0.0, 0.439],
         "rotation": [0, 0, 1, 0.0]
+      },
+      "goalKeeperStartingPose": {
+"        translation": [-4.47, 0, 0.24],
+"        rotation": [0, 0, 1, 0]
       }
     },
     "3": {
       "proto": "RoboCup_GankenKun",
-      "dockerImg": "CITBrains_GankenKun",
-      "dockerCmd": "launchRobot.sh --fieldPlayer",
+      "dockerTag": "latest",
+      "dockerCmd": "runall.sh GC",
       "halfTimeStartingPose": {
         "translation": [-0.75, -3.1, 0.439],
         "rotation": [0, 0, 1, 1.57]
@@ -50,12 +58,16 @@
       "shootoutStartingPose": {
         "translation": [2.0, 0.0, 0.439],
         "rotation": [0, 0, 1, 0.0]
+      },
+      "goalKeeperStartingPose": {
+"        translation": [-4.47, 0, 0.24],
+"        rotation": [0, 0, 1, 0]
       }
     },
     "4": {
       "proto": "RoboCup_GankenKun",
-      "dockerImg": "CITBrains_GankenKun",
-      "dockerCmd": "launchRobot.sh --fieldPlayer",
+      "dockerTag": "latest",
+      "dockerCmd": "runall.sh GC",
       "halfTimeStartingPose": {
         "translation": [-0.75, 3.1, 0.439],
         "rotation": [0, 0, 1, -1.57]
@@ -67,6 +79,10 @@
       "shootoutStartingPose": {
         "translation": [2.0, 0.0, 0.439],
         "rotation": [0, 0, 1, 0.0]
+      },
+      "goalKeeperStartingPose": {
+        "translation": [-4.47, 0, 0.24],
+        "rotation": [0, 0, 1, 0]
       }
     }
   }

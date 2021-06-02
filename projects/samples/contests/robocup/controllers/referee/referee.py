@@ -15,7 +15,7 @@
 from gamestate import GameState
 from field import Field
 from forceful_contact_matrix import ForcefulContactMatrix
-#from udp_bouncer import start_bouncing_server
+from udp_bouncer import start_bouncing_server
 
 from controller import Supervisor, AnsiCodes, Node
 

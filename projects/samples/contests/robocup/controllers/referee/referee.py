@@ -322,6 +322,8 @@ def game_controller_receive():
             else:
                 info(f"State has succesfully changed to {game.wait_for_state}")
                 game.wait_for_state = None
+        if game.state.game_state == "STATE_FINISHED":
+            game.sent_finish = False
     new_sec_state = game.state.secondary_state
     new_sec_phase = game.state.secondary_state_info[1]
     if previous_sec_state != new_sec_state or previous_sec_phase != new_sec_phase:
@@ -883,11 +885,11 @@ def update_team_contacts(team):
             if 'fallen' in player:  # was already down
                 fallen = True
                 continue
-            info(f'{color} player {number} has fallen down.')
+            info(f'{color.capitalize()} player {number} has fallen down.')
             player['fallen'] = time_count
         if not fallen and 'fallen' in player:  # the robot has recovered
             delay = (int((time_count - player['fallen']) / 100)) / 10
-            info(f'{color} player {number} just recovered after {delay} seconds.')
+            info(f'{color.capitalize()} player {number} just recovered after {delay} seconds.')
             del player['fallen']
         if outside_turf:
             if player['left_turf_time'] is None:
@@ -1002,9 +1004,11 @@ def update_team_penalized(team):
             if n > 0:
                 player['penalized'] = n
                 if 'sent_to_penalty_position' in player:
+                    info(f'Disabling actuators of {color} player {number}.')
                     customData.setSFString('penalized')
                     del player['sent_to_penalty_position']
             elif 'penalized' in player:
+                info(f'Enabling actuators of {color} player {number}.')
                 customData.setSFString('')
                 del player['penalized']
 
@@ -1222,7 +1226,7 @@ def check_team_fallen(team):
         if 'fallen' in player and time_count - player['fallen'] > 1000 * FALLEN_TIMEOUT:
             del player['fallen']
             send_penalty(player, 'INCAPABLE', 'fallen down',
-                         f'{color} player {number} has fallen down and didn\'t recover in the last 20 seconds.')
+                         f'{color.capitalize()} player {number} has fallen down and didn\'t recover in the last 20 seconds.')
             penalty = True
     return penalty
 
@@ -1501,7 +1505,7 @@ def send_team_penalties(team):
             robot.getField('translation').setSFVec3f(t)
             robot.getField('rotation').setSFRotation(r)
             player['sent_to_penalty_position'] = True
-            player['penalty_stabilize'] = time_count + 1000  # stabilize for one virtual second
+            player['penalty_stabilize'] = 5  # stabilize after 5 simulation steps
             player['penalty_translation'] = t
             player['penalty_rotation'] = r
             # Once removed from the field, the robot will be in the air, therefore its status will not be updated.
@@ -1517,15 +1521,19 @@ def send_penalties():
 
 
 def stabilize_team_penalized_robots(team):
+    color = team['color']
     for number in team['players']:
         player = team['players'][number]
-        if 'penalty_stabilize' in player and time_count % (10 * time_step) == 0:  # stabilize every 10 time steps
+        if 'penalty_stabilize' in player:
             robot = player['robot']
-            robot.resetPhysics()
-            robot.getField('translation').setSFVec3f(player['penalty_translation'])
-            robot.getField('rotation').setSFRotation(player['penalty_rotation'])
-            if player['penalty_stabilize'] <= time_count:
+            if player['penalty_stabilize'] == 0:
+                info(f'Stabilizing {color} player {number}')
+                robot.resetPhysics()
+                robot.getField('translation').setSFVec3f(player['penalty_translation'])
+                robot.getField('rotation').setSFRotation(player['penalty_rotation'])
                 del player['penalty_stabilize']
+            else:
+                player['penalty_stabilize'] -= 1
 
 
 def stabilize_penalized_robots():
@@ -1563,7 +1571,7 @@ def reset_player(color, number, pose):
     r = player[pose]['rotation']
     translation.setSFVec3f(t)
     rotation.setSFRotation(r)
-    info(f'{color} player {number} reset to {pose}: ' +
+    info(f'{color.capitalize()} player {number} reset to {pose}: ' +
          f'translation ({t[0]} {t[1]} {t[2]}), rotation ({r[0]} {r[1]} {r[2]} {r[3]}).')
 
 
@@ -1600,10 +1608,11 @@ def get_penalty_defending_team():
 
 def penalty_kicker_player():
     default = game.penalty_shootout_count % 2 == 0
-    attacking_team = red_team if game.kickoff == game.red.id and default else blue_team
+    attacking_team = red_team if (game.kickoff == game.blue.id) ^ default else blue_team
     for number in attacking_team['players']:
         if is_penalty_kicker(attacking_team, number):
             return attacking_team['players'][number]
+    return None
 
 
 def set_penalty_positions():
@@ -2117,8 +2126,9 @@ while supervisor.step(time_step) != -1 and not game.over:
                 next_penalty_shootout()
             if game.penalty_shootout_count < 10:  # detect entrance of kicker in the goal area
                 kicker = penalty_kicker_player()
-                if not kicker['outside_goal_area'] and not kicker['inside_own_side']:
-                    # if the kicker is not fully outside the opponent goal area, we stop the kick and continue
+                if kicker is None or (not kicker['outside_goal_area'] and not kicker['inside_own_side']):
+                    # if no kicker is available or if the kicker is not fully outside the opponent goal area,
+                    # we stop the kick and continue
                     next_penalty_shootout()
                     if game.over:
                         break

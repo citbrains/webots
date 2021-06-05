@@ -26,7 +26,7 @@
     ]
   },
   "blue": {
-    "id": 25,
+    "id": 4,
     "config": "cit_brains.json",
     "hosts": [
       "127.0.0.1",

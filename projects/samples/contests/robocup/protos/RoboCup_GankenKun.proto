@@ -27,7 +27,7 @@ PROTO RoboCup_GankenKun [
     selfCollision TRUE
     cameraWidth 640
     cameraHeight 480
-    enable_backlash is enable_backlash
+    enable_backlash IS enable_backlash
     %{
       if fields.name.value ~= '' then
         -- name is supposed to be something like "red player 2" or "blue player 1"

@@ -14,7 +14,7 @@ PROTO RoboCup_GankenKun [
   field SFString                name           "blue player 2"      # Is `Solid.name`.
   field MFString                controllerArgs []      # Is `Robot.controllerArgs`.
   field SFString                customData     ""      # Is `Robot.customData`.
-  field SFBool                  enable_backlash FALSE  # Enables backlash on all joints.
+  field SFBool                  enable_backlash TRUE   # Enables backlash on all joints.
 ]
 {
   GankenKun {

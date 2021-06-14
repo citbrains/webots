@@ -364,7 +364,7 @@ public:
   }
   void stopMotors() {
     for (size_t i = 0; i != motors.size(); i++) {
-      motors[i]->setVelocity(0);
+//      motors[i]->setVelocity(0);
       if (motors[i]->getType() == webots::Motor::ROTATIONAL)
         motors[i]->setTorque(0);
       else

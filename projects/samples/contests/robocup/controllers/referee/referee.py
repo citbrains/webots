@@ -68,12 +68,15 @@ FOUL_PENALTY_IMMUNITY = 2                 # after a foul, a player is immune to 
 GOAL_WIDTH = 2.6                          # width of the goal
 RED_COLOR = 0xd62929                      # red team color used for the display
 BLUE_COLOR = 0x2943d6                     # blue team color used for the display
+WHITE_COLOR = 0xffffff                    # white color used for the display
+BLACK_COLOR = 0x000000                    # black color used for the display
 STATIC_SPEED_EPS = 1e-2                   # The speed below which an object is considered as static [m/s]
 DROPPED_BALL_TEAM_ID = 128                # The team id used for dropped ball
 BALL_DIST_PERIOD = 1                      # seconds. The period at which distance to the ball is checked
 BALL_HOLDING_RATIO = 1.0/3                # The ratio of the radius used to compute minimal distance to the convex hull
 GAME_INTERRUPTION_PLACEMENT_NB_STEPS = 5  # The maximal number of steps allowed when moving ball or player away
 STATUS_PRINT_PERIOD = 20                  # Real time between two status updates in seconds
+DISABLE_ACTUATORS_MIN_DURATION = 1.0      # The minimal simulated time [s] until enabling actuators again after a reset
 
 # game interruptions requiring a free kick procedure
 GAME_INTERRUPTIONS = {
@@ -258,7 +261,7 @@ def update_time_display():
     else:
         sign = ' '
         value = '--:--'
-    supervisor.setLabel(5, sign + value, game.overlay_x, game.overlay_y, game.font_size, 0x000000, 0.2, game.font)
+    supervisor.setLabel(6, sign + value, 0, 0, game.font_size, 0x000000, 0.2, game.font)
 
 
 def update_state_display():
@@ -266,28 +269,13 @@ def update_state_display():
         state = game.state.game_state[6:]
         if state == 'READY' or state == 'SET':  # kickoff
             color = RED_COLOR if game.kickoff == game.red.id else BLUE_COLOR
-        elif game.interruption_team is not None:  # interruption
-            color = RED_COLOR if game.interruption_team == game.red.id else BLUE_COLOR
         else:
             color = 0x000000
-        sr = IN_PLAY_TIMEOUT - game.interruption_seconds + game.state.seconds_remaining \
-            if game.interruption_seconds is not None \
-            else game.state.secondary_seconds_remaining
-        if sr > 0:
-            if game.interruption is None:  # kickoff
-                color = RED_COLOR if game.kickoff == game.red.id else BLUE_COLOR
-                state = 'PLAY' if state == 'PLAYING' else 'READY'
-            else:  # interruption
-                state = 'PLAY' if state == 'PLAYING' and game.interruption_seconds is not None else 'READY'
-            state += ' ' + format_time(sr)
-        elif game.interruption is not None:
-            state = game.interruption
-            if game.interruption_step is not None:
-                state += ' [' + str(game.interruption_step) + ']'
     else:
         state = ''
         color = 0x000000
-    supervisor.setLabel(6, ' ' * 41 + state, game.overlay_x, game.overlay_y, game.font_size, color, 0.2, game.font)
+    supervisor.setLabel(7, ' ' * 41 + state, 0, 0, game.font_size, color, 0.2, game.font)
+    update_details_display()
 
 
 def update_score_display():
@@ -300,40 +288,119 @@ def update_score_display():
         red_score = '0'
         blue_score = '0'
     if game.side_left == game.blue.id:
-        red_score = ' ' * 24 + red_score
         offset = 21 if len(blue_score) == 2 else 22
-        blue_score = ' ' * offset + blue_score
+        score = ' ' * offset + blue_score + '-' + red_score
     else:
-        blue_score = ' ' * 24 + blue_score
         offset = 21 if len(red_score) == 2 else 22
-        red_score = ' ' * offset + red_score
-    supervisor.setLabel(7, red_score, game.overlay_x, game.overlay_y, game.font_size, 0x000000, 0.2, game.font)
-    supervisor.setLabel(8, blue_score, game.overlay_x, game.overlay_y, game.font_size, 0x000000, 0.2, game.font)
+        score = ' ' * offset + red_score + '-' + blue_score
+    supervisor.setLabel(5, score, 0, 0, game.font_size, BLACK_COLOR, 0.2, game.font)
+
+
+def update_time_count_display():
+    s = str(time_count)
+    s = ' ' * int(24 - (len(s) / 2)) + s
+    supervisor.setLabel(9, s, 0, 0.0465, game.font_size, BLACK_COLOR, 0.2, game.font)
+
+
+def update_team_details_display(team, side, strings):
+    for n in range(len(team['players'])):
+        robot_info = game.state.teams[side].players[n]
+        strings.background += '█  '
+        if robot_info.number_of_warnings > 0:  # a robot can have both a warning and a yellow card
+            strings.warning += '■  '
+            strings.yellow_card += ' ■ ' if robot_info.number_of_yellow_cards > 0 else '   '
+        else:
+            strings.warning += '   '
+            strings.yellow_card += '■  ' if robot_info.number_of_yellow_cards > 0 else '   '
+        strings.red_card += '■  ' if robot_info.number_of_red_cards > 0 else '   '
+        strings.white += str(n + 1) + '██'
+        strings.foreground += f'{robot_info.secs_till_unpenalized:02d} ' if robot_info.secs_till_unpenalized != 0 else '   '
+
+
+def update_details_display():
+    if not game.state:
+        return
+    red = 0 if game.state.teams[0].team_color == 'RED' else 1
+    blue = 1 if red == 0 else 0
+    if game.side_left == game.red.id:
+        left = red
+        right = blue
+        left_team = red_team
+        right_team = blue_team
+        left_color = RED_COLOR
+        right_color = BLUE_COLOR
+    else:
+        left = blue
+        right = red
+        left_team = blue_team
+        right_team = red_team
+        left_color = BLUE_COLOR
+        right_color = RED_COLOR
+
+    class StringObject:
+        pass
+
+    strings = StringObject()
+    strings.foreground = ' ' + format_time(game.state.secondary_seconds_remaining) + '  ' \
+                         if game.state.secondary_seconds_remaining > 0 else ' ' * 8
+    strings.background = ' ' * 7
+    strings.warning = strings.background
+    strings.yellow_card = strings.background
+    strings.red_card = strings.background
+    strings.white = '█' * 7
+    update_team_details_display(left_team, left, strings)
+    strings.left_background = strings.background
+    strings.background = ' ' * 28
+    space = 21 - len(left_team['players']) * 3
+    strings.white += '█' * space
+    strings.warning += ' ' * space
+    strings.yellow_card += ' ' * space
+    strings.red_card += ' ' * space
+    strings.foreground += ' ' * space
+    update_team_details_display(right_team, right, strings)
+    strings.right_background = strings.background
+    del strings.background
+    space = 12 - 3 * len(right_team['players'])
+    strings.white += '█' * (22 + space)
+    secondary_state = ' ' * 41 + game.state.secondary_state[6:]
+    sr = IN_PLAY_TIMEOUT - game.interruption_seconds + game.state.seconds_remaining \
+        if game.interruption_seconds is not None else 0
+    if sr > 0:
+        secondary_state += ' ' + format_time(sr)
+    if game.interruption is not None:
+        if game.interruption_step is not None:
+            secondary_state += ' [' + str(game.interruption_step) + ']'
+    if game.interruption_team is not None:  # interruption
+        secondary_state_color = RED_COLOR if game.interruption_team == game.red.id else BLUE_COLOR
+    else:
+        secondary_state_color = BLACK_COLOR
+    y = 0.0465  # vertical position of the second line
+    supervisor.setLabel(10, strings.left_background, 0, y, game.font_size, left_color, 0.2, game.font)
+    supervisor.setLabel(11, strings.right_background, 0, y, game.font_size, right_color, 0.2, game.font)
+    supervisor.setLabel(12, strings.white, 0, y, game.font_size, WHITE_COLOR, 0.2, game.font)
+    supervisor.setLabel(13, strings.warning, 0, 2 * y, game.font_size, 0x0000ff, 0.2, game.font)
+    supervisor.setLabel(14, strings.yellow_card, 0, 2 * y, game.font_size, 0xffff00, 0.2, game.font)
+    supervisor.setLabel(15, strings.red_card, 0, 2 * y, game.font_size, 0xff0000, 0.2, game.font)
+    supervisor.setLabel(16, strings.foreground, 0, y, game.font_size, BLACK_COLOR, 0.2, game.font)
+    supervisor.setLabel(17, secondary_state, 0, y, game.font_size, secondary_state_color, 0.2, game.font)
 
 
 def update_team_display():
-    n = len(red_team['name'])
-    red_team_name = ' ' * 27 + red_team['name'] if game.side_left == game.blue.id else (20 - n) * ' ' + red_team['name']
-    n = len(blue_team['name'])
-    blue_team_name = (20 - n) * ' ' + blue_team['name'] if game.side_left == game.blue.id else ' ' * 27 + blue_team['name']
-    supervisor.setLabel(3, red_team_name, game.overlay_x, game.overlay_y, game.font_size, RED_COLOR, 0.2, game.font)
-    supervisor.setLabel(4, blue_team_name, game.overlay_x, game.overlay_y, game.font_size, BLUE_COLOR, 0.2, game.font)
+    # red and blue backgrounds
+    left_color = RED_COLOR if game.side_left == game.red.id else BLUE_COLOR
+    right_color = BLUE_COLOR if game.side_left == game.red.id else RED_COLOR
+    supervisor.setLabel(2, ' ' * 7 + '█' * 14, 0, 0, game.font_size, left_color, 0.2, game.font)
+    supervisor.setLabel(3, ' ' * 26 + '█' * 14, 0, 0, game.font_size, right_color, 0.2, game.font)
+    # white background and names
+    left_team = red_team if game.side_left == game.red.id else blue_team
+    right_team = red_team if game.side_left == game.blue.id else blue_team
+    team_names = 7 * '█' + (13 - len(left_team['name'])) * ' ' + left_team['name'] + \
+        ' █████ ' + right_team['name'] + ' ' * (13 - len(right_team['name'])) + '█' * 22
+    supervisor.setLabel(4, team_names, 0, 0, game.font_size, WHITE_COLOR, 0.2, game.font)
     update_score_display()
 
 
 def setup_display():
-    black = 0x000000
-    white = 0xffffff
-    transparency = 0.2
-    x = game.overlay_x
-    y = game.overlay_y
-    size = game.font_size
-    font = game.font
-    # default background
-    supervisor.setLabel(0, '█' * 7 + ' ' * 14 + '█' * 5 + 14 * ' ' + '█' * 14, x, y, size, white, transparency, font)
-    # team name background
-    supervisor.setLabel(1, ' ' * 7 + '█' * 14 + ' ' * 5 + 14 * '█', x, y, size, white, transparency * 2, font)
-    supervisor.setLabel(2, ' ' * 23 + '-', x, y, size, black, transparency, font)
     update_team_display()
     update_time_display()
     update_state_display()
@@ -960,8 +1027,8 @@ def update_team_contacts(team):
             # check if the robot has fallen
             if member == 'foot':
                 continue
+            fallen = True
             if 'fallen' in player:  # was already down
-                fallen = True
                 continue
             info(f'{color.capitalize()} player {number} has fallen down.')
             player['fallen'] = time_count
@@ -1058,15 +1125,11 @@ def update_team_penalized(team):
             continue
         p = game.state.teams[index].players[int(number) - 1]
         if p.number_of_red_cards > 0:
-            robot = player['robot']
             # sending red card robot far away from the field
             t = copy.deepcopy(player['reentryStartingPose']['translation'])
             t[0] = 50
             t[1] = (10 + int(number)) * (1 if color == 'red' else -1)
-            robot.loadState('__init__')
-            list_player_solids(player, color, number)
-            robot.getField('translation').setSFVec3f(t)
-            robot.getField('rotation').setSFRotation(player['reentryStartingPose']['rotation'])
+            reset_player(color, number, 'reentryStartingPose', t)
             customData = player['robot'].getField('customData')
             customData.setSFString('red_card')  # disable all devices of the robot
             player['penalized'] = 'red_card'
@@ -1075,18 +1138,19 @@ def update_team_penalized(team):
             # than moving it away from the field
             player['robot'] = None
             info(f'sending {color} player {number} tp {t}.')
-            if 'penalty_stabilize' in player:
-                del player['penalty_stabilize']
+            if 'stabilize' in player:
+                del player['stabilize']
             player['outside_field'] = True
-        else:
-            n = p.secs_till_unpenalized
-            customData = player['robot'].getField('customData')
-            if n > 0:
-                player['penalized'] = n
-            elif 'penalized' in player and player['penalized'] != REMOVAL_PENALTY_TIMEOUT:
+        elif 'enable_actuators_at' in player:
+            timing_ok = time_count >= player['enable_actuators_at']
+            penalty_ok = 'penalized' not in player or p.penalty == 0
+            if timing_ok and penalty_ok:
+                customData = player['robot'].getField('customData')
                 info(f'Enabling actuators of {color} player {number}.')
                 customData.setSFString('')
-                del player['penalized']
+                del player['enable_actuators_at']
+                if 'penalized' in player:
+                    del player['penalized']
 
 
 def update_penalized():
@@ -1582,8 +1646,27 @@ def game_interruption_touched(team, number):
     game_controller_send(f'CARD:{team_id}:{number}:WARN')
 
 
+def get_first_available_spot(team_color, number, reentry_pos):
+    """Return the first available spot to enter on one side of the field given the reentry_pos"""
+    if not is_other_robot_near(team_color, number, reentry_pos, game.field.robot_radius):
+        return reentry_pos
+    preferred_dir = 1 if reentry_pos[1] > game.ball_position[1] else -1
+    max_iterations = math.ceil(reentry_pos[1] / game.field.penalty_offset)
+    basic_offset = np.array([game.field.penalty_offset, 0, 0])
+    initial_pos = np.array(reentry_pos)
+    for i in range(1, max_iterations):
+        for direction in [preferred_dir, -preferred_dir]:
+            current_pos = initial_pos + direction * i * basic_offset
+            opposite_sides = current_pos[0] * initial_pos[0] < 0  # current_pos should be on the other side
+            out_of_field = abs(current_pos[0]) > game.field.size_x
+            if opposite_sides or out_of_field:
+                continue
+            if not is_other_robot_near(team_color, number, current_pos, game.field.robot_radius):
+                return current_pos.tolist()
+    return None
+
+
 def place_player_at_penalty(player, team, number):
-    robot = player['robot']
     color = team['color']
     t = copy.deepcopy(player['reentryStartingPose']['translation'])
     r = copy.deepcopy(player['reentryStartingPose']['rotation'])
@@ -1592,33 +1675,16 @@ def place_player_at_penalty(player, team, number):
         t[1] = -t[1]
         r = rotate_along_z(r)
     # check if position is already occupied by a penalized robot
-    while True:
-        moved = False
-        for n in team['players']:
-            other_robot = team['players'][n]['robot']
-            if other_robot is None:
-                continue
-            other_t = other_robot.getField('translation').getSFVec3f()
-            if distance3(other_t, t) < game.field.robot_radius:
-                t[0] += game.field.penalty_offset if game.ball_position[0] < t[0] else -game.field.penalty_offset
-                moved = True
-        if not moved:
-            break
-    # test if position is behind the goal line (note: it should never end up beyond the center line)
-    if t[0] > game.field.size_x:
-        t[0] -= 4 * game.field.penalty_offset
-    elif t[0] < -game.field.size_x:
-        t[0] += 4 * game.field.penalty_offset
-    robot.loadState('__init__')
-    list_player_solids(player, color, number)
-    robot.getField('translation').setSFVec3f(t)
-    robot.getField('rotation').setSFRotation(r)
-    robot.resetPhysics()
-    player['penalty_stabilize'] = 5  # stabilize after 5 simulation steps
-    player['penalty_translation'] = t
-    player['penalty_rotation'] = r
-    player['position'] = t
-    info(f'Moved {color} player {number}: translation ({t[0]} {t[1]} {t[2]}), rotation ({r[0]} {r[1]} {r[2]} {r[3]}).')
+    info(f"placing player {color} {number} at {t}")
+    pos = get_first_available_spot(color, number, t)
+    info(f"-> pos: {pos}")
+    if pos is None:
+        t[1] = -t[1]
+        r = rotate_along_z(r)
+        pos = get_first_available_spot(color, number, t)
+        if pos is None:
+            raise RuntimeError("No spot available, this should not be possible")
+    reset_player(color, number, None, pos, r)
 
 
 def send_team_penalties(team):
@@ -1638,8 +1704,6 @@ def send_team_penalties(team):
             game_controller_send(f'PENALTY:{team_id}:{number}:{penalty}')
             place_player_at_penalty(player, team, number)
             player['penalized'] = REMOVAL_PENALTY_TIMEOUT
-            info(f'Disabling actuators of {color} player {number}.')
-            player['robot'].getField('customData').setSFString('penalized')
             # Once removed from the field, the robot will be in the air, therefore its status will not be updated.
             # Thus, we need to make sure it will not be considered in the air while falling
             player['outside_field'] = True
@@ -1651,25 +1715,25 @@ def send_penalties():
     send_team_penalties(blue_team)
 
 
-def stabilize_team_penalized_robots(team):
+def stabilize_team_robots(team):
     color = team['color']
     for number in team['players']:
         player = team['players'][number]
-        if 'penalty_stabilize' in player:
+        if 'stabilize' in player:
             robot = player['robot']
-            if player['penalty_stabilize'] == 0:
+            if player['stabilize'] == 0:
                 info(f'Stabilizing {color} player {number}')
                 robot.resetPhysics()
-                robot.getField('translation').setSFVec3f(player['penalty_translation'])
-                robot.getField('rotation').setSFRotation(player['penalty_rotation'])
-                del player['penalty_stabilize']
+                robot.getField('translation').setSFVec3f(player['stabilize_translation'])
+                robot.getField('rotation').setSFRotation(player['stabilize_rotation'])
+                del player['stabilize']
             else:
-                player['penalty_stabilize'] -= 1
+                player['stabilize'] -= 1
 
 
-def stabilize_penalized_robots():
-    stabilize_team_penalized_robots(red_team)
-    stabilize_team_penalized_robots(blue_team)
+def stabilize_robots():
+    stabilize_team_robots(red_team)
+    stabilize_team_robots(blue_team)
 
 
 def flip_pose(pose):
@@ -1692,7 +1756,7 @@ def flip_sides():  # flip sides (no need to notify GameController, it does it au
     update_team_display()
 
 
-def reset_player(color, number, pose):
+def reset_player(color, number, pose, custom_t=None, custom_r=None):
     team = red_team if color == 'red' else blue_team
     player = team['players'][number]
     robot = player['robot']
@@ -1700,12 +1764,20 @@ def reset_player(color, number, pose):
     list_player_solids(player, color, number)
     translation = robot.getField('translation')
     rotation = robot.getField('rotation')
-    t = player[pose]['translation']
-    r = player[pose]['rotation']
+    t = custom_t if custom_t else player[pose]['translation']
+    r = custom_r if custom_r else player[pose]['rotation']
     translation.setSFVec3f(t)
     rotation.setSFRotation(r)
+    robot.resetPhysics()
+    player['stabilize'] = 5  # stabilize after 5 simulation steps
+    player['stabilize_translation'] = t
+    player['stabilize_rotation'] = r
+    player['position'] = t
     info(f'{color.capitalize()} player {number} reset to {pose}: ' +
          f'translation ({t[0]} {t[1]} {t[2]}), rotation ({r[0]} {r[1]} {r[2]} {r[3]}).')
+    info(f'Disabling actuators of {color} player {number}.')
+    robot.getField('customData').setSFString('penalized')
+    player['enable_actuators_at'] = time_count + int(DISABLE_ACTUATORS_MIN_DURATION * 1000)
 
 
 def reset_teams(pose):
@@ -1847,8 +1919,8 @@ def next_penalty_shootout():
     flip_sides()
     info(f'fliped sides: game.side_left = {game.side_left}')
     if penalty_kicker_player():
-        set_penalty_positions()
         game_controller_send('STATE:SET')
+        set_penalty_positions()
     else:
         info("Skipping penalty trial because team has no kicker available")
         game_controller_send('STATE:SET')
@@ -1937,6 +2009,14 @@ def goal_kick():
     interruption('GOALKICK')
 
 
+def move_ball_away():
+    """Places ball far away from field for phases where the referee is supposed to hold it in it's hand"""
+    target_location = [100, 100, game.ball_radius + 0.05]
+    game.ball.resetPhysics()
+    game.ball_translation.setSFVec3f(target_location)
+    info("Moved ball out of the field temporarily")
+
+
 def kickoff():
     color = 'red' if game.kickoff == game.red.id else 'blue'
     info(f'Kick-off is {color}.')
@@ -1952,6 +2032,7 @@ def kickoff():
     game.can_score = False        # or was touched by another player
     game.can_score_own = False
     game.kicking_player_number = None
+    move_ball_away()
     info(f'Ball not in play, will be kicked by a player from the {game.ball_must_kick_team} team.')
 
 
@@ -1973,6 +2054,17 @@ def dropped_ball():
 def is_robot_near(position, min_dist):
     for team in [red_team, blue_team]:
         for number in team['players']:
+            if distance2(position, team['players'][number]['position']) < min_dist:
+                return True
+    return False
+
+
+def is_other_robot_near(robot_color, robot_number, position, min_dist):
+    """Test if another robot than the robot defined by team_color and number is closer than min_dist from position"""
+    for team in [red_team, blue_team]:
+        for number in team['players']:
+            if team['color'] == robot_color and number == robot_number:
+                continue
             if distance2(position, team['players'][number]['position']) < min_dist:
                 return True
     return False
@@ -2223,10 +2315,8 @@ ball_size = 1 if field_size == 'kid' else 5
 children.importMFNodeFromString(-1, f'DEF BALL RobocupSoccerBall {{ translation 100 100 0.5 size {ball_size} }}')
 
 game.state = None
-game.font_size = 0.1
+game.font_size = 0.096
 game.font = 'Lucida Console'
-game.overlay_x = 0.02
-game.overlay_y = 0.01
 spawn_team(red_team, game.side_left == game.blue.id, children)
 spawn_team(blue_team, game.side_left == game.red.id, children)
 setup_display()
@@ -2299,7 +2389,7 @@ try:
                 if retry <= 10:
                     warning(f'Could not connect to GameController at localhost:8750: {msg}. Retrying ({retry}/10)...')
                     time.sleep(retry)  # give some time to allow the GameControllerSimulator to start-up
-                    supervisor.step(time_step)
+                    supervisor.step(0)
                 else:
                     error('Could not connect to GameController at localhost:8750.', fatal=True)
                     game.controller = None
@@ -2371,7 +2461,7 @@ try:
         if game.state is None:
             time_count += time_step
             continue
-        stabilize_penalized_robots()
+        stabilize_robots()
         send_play_state_after_penalties = False
         previous_position = copy.deepcopy(game.ball_position)
         game.ball_position = game.ball_translation.getSFVec3f()
@@ -2616,17 +2706,7 @@ try:
                 if game.state.seconds_remaining <= 0:
                     next_penalty_shootout()
             elif game.state.first_half:
-                # NOTE: this part is probably dead code that is never used, transition from end of first Half to initial is
-                #       now automatic.
-                if game.ready_real_time is None:
-                    if game.overtime:
-                        game_type = 'knockout '
-                        game_controller_send('STATE:OVERTIME-SECOND-HALF')
-                    else:
-                        game_type = ''
-                        game_controller_send('STATE:SECOND-HALF')
-                    info(f'Beginning of {game_type}second half.')
-                    game.ready_real_time = time.time() + HALF_TIME_BREAK_REAL_TIME_DURATION
+                game.ready_real_time = None
             elif game.type == 'KNOCKOUT' and game.overtime and game.state.teams[0].score == game.state.teams[1].score:
                 if game.ready_real_time is None:
                     info('Beginning of the knockout first half.')
@@ -2692,6 +2772,7 @@ try:
                 send_play_state_after_penalties = False
 
         time_count += time_step
+        update_time_count_display()
 
         if game.minimum_real_time_factor != 0:
             # slow down the simulation to guarantee a miminum amount of real time between each step

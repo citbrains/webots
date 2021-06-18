@@ -1354,8 +1354,8 @@ def check_team_ball_handling(team):
         if game.throw_in:
             if duration >= BALL_HANDLING_TIMEOUT:  # a player can handle the ball for 10 seconds for throw-in, no more
                 reset_ball_handling(player)
-                sentence = f'touched the ball with its hand or arm for more than {BALL_HANDLING_TIMEOUT} seconds ' + \
-                           'during throw-in'
+                sentence = f'touched the ball with its hand or arm for more than {BALL_HANDLING_TIMEOUT} '
+                + 'seconds during throw-in'
                 send_penalty(player, 'BALL_MANIPULATION', sentence, f'{color.capitalize()} player {number} {sentence}.')
                 continue
         # goalkeeper case
@@ -1950,19 +1950,30 @@ def check_penalty_goal_line():
 
 
 def interruption(interruption_type, team=None, location=None, is_goalkeeper_ball_manipulation=False):
+    if location is not None:
+        game.ball_kick_translation[:2] = location[:2]
     if interruption_type == 'FREEKICK':
         own_side = (game.side_left == team) ^ (game.ball_position[0] < 0)
         inside_penalty_area = game.field.circle_fully_inside_penalty_area(game.ball_position, game.ball_radius)
         if is_goalkeeper_ball_manipulation and inside_penalty_area and own_side:
-            # TODO: location should be adjusted to project ball on the penalty line parallel to the goal line
+            # move the ball on the penalty line parallel to the goal line
+            dx = game.field.size_x - game.field.penalty_area_length
+            dy = game.field.penalty_area_width / 2
+            moved = False
+            if abs(location[0]) > dx:
+                game.ball_kick_translation[0] = dx * (-1 if location[0] < 0 else 1)
+                moved = True
+            if abs(location[1]) > dy:
+                game.ball_kick_translation[1] = dy * (-1 if location[1] < 0 else 1)
+                moved = True
+            if moved:
+                info(f'Moved the ball on the penalty line at {game.ball_kick_translation}')
             interruption_type = 'INDIRECT_FREEKICK'
         else:
             interruption_type = 'DIRECT_FREEKICK'
     game.in_play = None
     game.can_score_own = False
     game.ball_set_kick = True
-    if location is not None:
-        game.ball_kick_translation[:2] = location[:2]
     game.interruption = interruption_type
     game.phase = interruption_type
     game.ball_first_touch_time = 0
@@ -2501,8 +2512,8 @@ try:
                         info('The ball has left the center circle after kick-off.')
 
                 ball_touched_by_opponent = game.ball_last_touch_team != game.ball_must_kick_team
-                ball_touched_by_teammate = (game.kicking_player_number is not None
-                                            and game.ball_last_touch_player_number != game.kicking_player_number)
+                ball_touched_by_teammate = (game.kicking_player_number is not None and
+                                            game.ball_last_touch_player_number != game.kicking_player_number)
                 ball_touched_in_play = game.in_play is not None and game.in_play < game.ball_last_touch_time
                 if not game.can_score:
                     if game.phase == 'KICKOFF':
@@ -2756,14 +2767,13 @@ try:
 
         check_fallen()                                # detect fallen robots
 
-        if game.state.game_state == 'STATE_PLAYING' and (game.interruption is None or game.interruption_seconds is not None):
+        if game.state.game_state == 'STATE_PLAYING' and game.in_play:
             ball_holding = check_ball_holding()       # check for ball holding fouls
             if ball_holding:
                 interruption('FREEKICK', ball_holding, game.ball_position)
-            ball_handling = check_ball_handling()
+            ball_handling = check_ball_handling()  # return team id if ball handling is performed by goalkeeper
             if ball_handling:
-                # TODO: check if ball handling is performed by goalkeeper and if it is, then use it for interruption
-                interruption('FREEKICK', ball_handling, game.ball_position)
+                interruption('FREEKICK', ball_handling, game.ball_position, is_goalkeeper_ball_manipulation=True)
         check_penalized_in_field()                    # check for penalized robots inside the field
         if game.state.game_state != 'STATE_INITIAL':  # send penalties if needed
             send_penalties()

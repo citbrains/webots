@@ -41,8 +41,8 @@ INACTIVE_GOALKEEPER_TIMEOUT = 20          # a goalkeeper is penalized if inactiv
 INACTIVE_GOALKEEPER_DIST = 0.5            # if goalkeeper is farther than this distance it can't be inactive
 INACTIVE_GOALKEEPER_PROGRESS = 0.05       # the minimal distance to move toward the ball in order to be considered active
 DROPPED_BALL_TIMEOUT = 120                # wait 2 simulated minutes if the ball doesn't move before starting dropped ball
-SIMULATED_TIME_INTERRUPTION_PHASE_0 = 10  # waiting time of 10 simulated seconds in phase 0 of interruption
-SIMULATED_TIME_INTERRUPTION_PHASE_1 = 30  # waiting time of 30 simulated seconds in phase 1 of interruption
+SIMULATED_TIME_INTERRUPTION_PHASE_0 = 5   # waiting time of 5 simulated seconds in phase 0 of interruption
+SIMULATED_TIME_INTERRUPTION_PHASE_1 = 15  # waiting time of 15 simulated seconds in phase 1 of interruption
 SIMULATED_TIME_BEFORE_PLAY_STATE = 5      # wait 5 simulated seconds in SET state before sending the PLAY state
 SIMULATED_TIME_SET_PENALTY_SHOOTOUT = 15  # wait 15 simulated seconds in SET state before sending the PLAY state
 HALF_TIME_BREAK_REAL_TIME_DURATION = 15   # the half-time break lasts 15 real seconds
@@ -419,8 +419,12 @@ def setup_display():
 
 
 def team_index(color):
+    if color not in ['red', 'blue']:
+        raise RuntimeError(f'Wrong color passed to team_index(): \'{color}\'.')
     id = game.red.id if color == 'red' else game.blue.id
     index = 0 if game.state.teams[0].team_number == id else 1
+    if game.state.teams[index].team_number != id:
+        raise RuntimeError(f'Wrong team number set in team_index(): {id} != {game.state.teams[index].team_number}')
     return index
 
 
@@ -1147,7 +1151,7 @@ def update_team_penalized(team):
             # Once this is fixed, we should remove the robot, which seems to be a better solution
             # than moving it away from the field
             player['robot'] = None
-            info(f'sending {color} player {number} tp {t}. (team_index: {index})')
+            info(f'Sending {color} player {number} to {t}. (team_index: {index})')
             if 'stabilize' in player:
                 del player['stabilize']
             player['outside_field'] = True

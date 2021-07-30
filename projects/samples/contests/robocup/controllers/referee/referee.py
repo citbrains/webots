@@ -2279,7 +2279,7 @@ def read_team(json_path):
 #        player = team['players'][number]
 
 def set_positions_shared_memory():
-    with open("position.txt", "r+b") as f:
+    with open("/tmp/position.txt", "r+b") as f:
         mm = mmap.mmap(f.fileno(), 0)
         pos = game.ball_position
         data = "ball, "+format(pos[0], '.3f') + ", " + format(pos[1], '.3f') + ", " + format(pos[2], '.3f') + "\r\n"
@@ -2294,7 +2294,7 @@ def set_positions_shared_memory():
         mm[0:len(data)] = data.encode()
         mm.close()
 
-with open("position.txt", "w") as f:
+with open("/tmp/position.txt", "w") as f:
     f.write(str(' '*1000))
 
 # start the webots supervisor

@@ -35,6 +35,8 @@ from scipy.spatial import ConvexHull
 
 from types import SimpleNamespace
 
+import mmap
+
 OUTSIDE_TURF_TIMEOUT = 20                 # a player outside the turf for more than 20 seconds gets a removal penalty
 INVALID_GOALKEEPER_TIMEOUT = 1            # 1 second
 INACTIVE_GOALKEEPER_TIMEOUT = 20          # a goalkeeper is penalized if inactive for 20 seconds while the ball is in goal area
@@ -2270,6 +2272,31 @@ def read_team(json_path):
     return team
 
 
+#    game.ball_position
+#    color = team['color']
+#    nb_players = len(team['players'])
+#    for number in team['players']:
+#        player = team['players'][number]
+
+def set_positions_shared_memory():
+    with open("position.txt", "r+b") as f:
+        mm = mmap.mmap(f.fileno(), 0)
+        pos = game.ball_position
+        data = "ball, "+format(pos[0], '.3f') + ", " + format(pos[1], '.3f') + ", " + format(pos[2], '.3f') + "\r\n"
+        for team in [blue_team, red_team]:
+            for number in team['players']:
+                player = team['players'][number]
+                if player['robot'] is None:
+                    continue
+                pos = player['position']
+                data += team['color']+str(number)+", "+format(pos[0], '.3f') + ", " + format(pos[1], '.3f') + ", " + format(pos[2], '.3f') + "\r\n"
+        mm[0:1000] = (' '*1000).encode()
+        mm[0:len(data)] = data.encode()
+        mm.close()
+
+with open("position.txt", "w") as f:
+    f.write(str(' '*1000))
+
 # start the webots supervisor
 supervisor = Supervisor()
 time_step = int(supervisor.getBasicTimeStep())
@@ -2522,6 +2549,7 @@ try:
         if hasattr(game, 'max_duration') and (time.time() - log.real_time) > game.max_duration:
             info(f'Interrupting game automatically after {game.max_duration} seconds')
             break
+        set_positions_shared_memory()
         perform_status_update()
         game_controller_send(f'CLOCK:{time_count}')
         game_controller_receive()

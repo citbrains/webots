@@ -2282,14 +2282,16 @@ def set_positions_shared_memory():
     with open("/tmp/position.txt", "r+b") as f:
         mm = mmap.mmap(f.fileno(), 0)
         pos = game.ball_position
-        data = "ball, "+format(pos[0], '.3f') + ", " + format(pos[1], '.3f') + ", " + format(pos[2], '.3f') + "\r\n"
+        rot = game.ball.getField('rotation').getSFRotation()
+        data = "ball " + format(pos[0], '.3f') + " " + format(pos[1], '.3f') + " " + format(pos[2], '.3f') + " " + format(rot[0], '.3f')  + " " + format(rot[1], '.3f')  + " " + format(rot[2], '.3f')  + " " + format(rot[3], '.3f') + " \r\n"
         for team in [blue_team, red_team]:
             for number in team['players']:
                 player = team['players'][number]
                 if player['robot'] is None:
                     continue
                 pos = player['position']
-                data += team['color']+str(number)+", "+format(pos[0], '.3f') + ", " + format(pos[1], '.3f') + ", " + format(pos[2], '.3f') + "\r\n"
+                rot = player['robot'].getField('rotation').getSFRotation()
+                data += team['color'] + str(number) + " " + format(pos[0], '.3f') + " " + format(pos[1], '.3f') + " " + format(pos[2], '.3f') + " " + format(rot[0], '.3f')  + " " + format(rot[1], '.3f')  + " " + format(rot[2], '.3f')  + " " + format(rot[3], '.3f') + " \r\n"
         mm[0:1000] = (' '*1000).encode()
         mm[0:len(data)] = data.encode()
         mm.close()

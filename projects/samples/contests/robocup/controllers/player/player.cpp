@@ -702,6 +702,7 @@ public:
       }
     }
     // Extend
+    if ((controller_time % 32) == 0)
     {
       int    fd;
       long   size, pagesize;
@@ -737,7 +738,6 @@ public:
         for (unsigned int i = 0; i < v.size() - 1; i ++)
         {
           sscanf(v[i].c_str(), "%s %lf %lf %lf %lf %lf %lf %lf", name, &x, &y, &z, &q0, &q1, &q2, &q3);
-//          printf("%s, %lf, %lf, %lf, %lf, %lf, %lf, %lf\r\n", name, x, y, z, q0, q1, q2, q3);
           ObjectPosition *measurement = sensor_measurements.add_object_positions();
           measurement->set_name(name);
           Vector3 *vector3 = measurement->mutable_position();

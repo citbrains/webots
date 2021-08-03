@@ -2299,6 +2299,10 @@ def set_positions_shared_memory():
 with open("/tmp/position.txt", "w") as f:
     f.write(str(' '*1000))
 
+is_simple = False
+if len(sys.argv) > 1:
+    is_simple = True if sys.argv[1] == "simple" else False
+
 # start the webots supervisor
 supervisor = Supervisor()
 time_step = int(supervisor.getBasicTimeStep())
@@ -2309,6 +2313,10 @@ log_file = open('log.txt', 'w')
 # determine configuration file name
 game_config_file = os.environ['WEBOTS_ROBOCUP_GAME'] if 'WEBOTS_ROBOCUP_GAME' in os.environ \
     else os.path.join(os.getcwd(), 'game.json')
+
+if is_simple:
+    game_config_file = os.path.join(os.getcwd(), 'game_simple.json')
+
 if not os.path.isfile(game_config_file):
     error(f'Cannot read {game_config_file} game config file.', fatal=True)
 
@@ -2404,7 +2412,11 @@ toss_a_coin_if_needed('side_left')
 toss_a_coin_if_needed('kickoff')
 
 children = supervisor.getRoot().getField('children')
-children.importMFNodeFromString(-1, f'RobocupSoccerField {{ size "{field_size}" }}')
+if is_simple:
+    children.importMFNodeFromString(-1, f'RobocupSoccerField_simple {{ size "{field_size}" }}')
+else:
+    children.importMFNodeFromString(-1, f'RobocupSoccerField {{ size "{field_size}" }}')
+
 ball_size = 1 if field_size == 'kid' else 5
 # the ball is initially very far away from the field
 children.importMFNodeFromString(-1, f'DEF BALL RobocupSoccerBall {{ translation 100 100 0.5 size {ball_size} }}')

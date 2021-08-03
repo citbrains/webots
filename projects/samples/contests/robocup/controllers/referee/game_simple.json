@@ -9,7 +9,7 @@
   "use_bouncing_server": true,
   "red": {
     "id": 8,
-    "config": "cit_brains2.json",
+    "config": "cit_brains2_simple.json",
     "hosts": [
       "127.0.0.1",
       "192.168.123.21",
@@ -24,7 +24,7 @@
   },
   "blue": {
     "id": 4,
-    "config": "cit_brains.json",
+    "config": "cit_brains_simple.json",
     "hosts": [
       "127.0.0.1",
       "192.168.123.41",

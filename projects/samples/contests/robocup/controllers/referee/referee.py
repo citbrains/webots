@@ -2271,13 +2271,6 @@ def read_team(json_path):
         error(f"Failed to read file {json_path} with the following error:\n{traceback.format_exc()}", fatal=True)
     return team
 
-
-#    game.ball_position
-#    color = team['color']
-#    nb_players = len(team['players'])
-#    for number in team['players']:
-#        player = team['players'][number]
-
 def set_positions_shared_memory():
     with open("/tmp/position.txt", "r+b") as f:
         mm = mmap.mmap(f.fileno(), 0)

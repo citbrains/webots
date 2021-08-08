@@ -941,6 +941,7 @@ def init_team(team):
         player['velocity_buffer'] = [[0] * 6] * window_size
         player['ball_handling_start'] = None
         player['ball_handling_last'] = None
+        player['contact_points'] = []
 
 
 def update_team_contacts(team):
@@ -1636,10 +1637,10 @@ def set_ball_touched(team_color, player_number):
 
 
 def reset_ball_touched():
-    game.ball_previous_touch_team = None
-    game.ball_previous_touch_player_number = None
-    game.ball_last_touch_team = None
-    game.ball_last_touch_player_number = None
+    game.ball_previous_touch_team = 'blue'
+    game.ball_previous_touch_player_number = 1
+    game.ball_last_touch_team = 'blue'
+    game.ball_last_touch_player_number = 1
 
 
 def is_game_interruption():
@@ -2271,13 +2272,6 @@ def read_team(json_path):
         error(f"Failed to read file {json_path} with the following error:\n{traceback.format_exc()}", fatal=True)
     return team
 
-
-#    game.ball_position
-#    color = team['color']
-#    nb_players = len(team['players'])
-#    for number in team['players']:
-#        player = team['players'][number]
-
 def set_positions_shared_memory():
     with open("/tmp/position.txt", "r+b") as f:
         mm = mmap.mmap(f.fileno(), 0)
@@ -2576,7 +2570,13 @@ try:
         game.ball_position = game.ball_translation.getSFVec3f()
         if game.ball_position != previous_position:
             game.ball_last_move = time_count
-        update_contacts()  # check for collisions with the ground and ball
+        #update_contacts()  # check for collisions with the ground and ball
+        for team in [blue_team, red_team]:
+            for number in team['players']:
+                player = team['players'][number]
+                if player['robot'] is None:
+                    continue
+                player['position'] = player['robot'].getCenterOfMass()
         if not game.penalty_shootout:
             update_ball_holding()  # check for ball holding for field players and goalkeeper
         update_histories()
@@ -2806,8 +2806,8 @@ try:
                 else:
                     if game.dropped_ball:
                         check_dropped_ball_position()
-                    else:
-                        check_kickoff_position()
+                    #else:
+                    #    check_kickoff_position()
                 game.play_countdown -= 1
                 if game.play_countdown == 0:
                     game.ready_countdown = 0

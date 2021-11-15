@@ -6,7 +6,7 @@
   "minimum_real_time_factor": 0,
   "side_left": "blue",
   "press_a_key_to_terminate": true,
-  "use_bouncing_server": true,
+  "use_bouncing_server": false,
   "red": {
     "id": 8,
     "config": "cit_brains2_simple.json",

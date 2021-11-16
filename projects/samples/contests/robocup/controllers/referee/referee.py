@@ -14,7 +14,7 @@
 
 from gamestate import GameState
 from field import Field
-from forceful_contact_matrix import ForcefulContactMatrix
+#from forceful_contact_matrix import ForcefulContactMatrix
 
 from controller import Supervisor, AnsiCodes, Node
 
@@ -34,10 +34,6 @@ from types import SimpleNamespace
 
 import mmap
 
-SIMULATED_TIME_INTERRUPTION_PHASE_0 = 5   # waiting time of 5 simulated seconds in phase 0 of interruption
-SIMULATED_TIME_BEFORE_PLAY_STATE = 5      # wait 5 simulated seconds in SET state before sending the PLAY state
-SIMULATED_TIME_SET_PENALTY_SHOOTOUT = 15  # wait 15 simulated seconds in SET state before sending the PLAY state
-HALF_TIME_BREAK_REAL_TIME_DURATION = 15   # the half-time break lasts 15 real seconds
 REAL_TIME_BEFORE_FIRST_READY_STATE = 120  # wait 2 real minutes before sending the first READY state
 IN_PLAY_TIMEOUT = 10                      # time after which the ball is considered in play even if it was not kicked
 GOALKEEPER_BALL_HOLDING_TIMEOUT = 6       # a goalkeeper may hold the ball up to 6 seconds on the ground
@@ -56,7 +52,6 @@ BALL_DIST_PERIOD = 1                      # seconds. The period at which distanc
 BALL_HOLDING_RATIO = 1.0/3                # The ratio of the radius used to compute minimal distance to the convex hull
 GAME_INTERRUPTION_PLACEMENT_NB_STEPS = 5  # The maximal number of steps allowed when moving ball or player away
 STATUS_PRINT_PERIOD = 20                  # Real time between two status updates in seconds
-DISABLE_ACTUATORS_MIN_DURATION = 1.0      # The minimal simulated time [s] until enabling actuators again after a reset
 
 # game interruptions requiring a free kick procedure
 GAME_INTERRUPTIONS = {
@@ -160,28 +155,6 @@ def error(message, fatal=False):
         clean_exit()
 
 
-def perform_status_update():
-    now = time.time()
-    if not hasattr(game, "last_real_time"):
-        game.last_real_time = now
-        game.last_time_count = time_count
-    elif now - game.last_real_time > STATUS_PRINT_PERIOD:
-        elapsed_real = now - game.last_real_time
-        elapsed_simulation = (time_count - game.last_time_count) / 1000
-        speed_factor = elapsed_simulation / elapsed_real
-        messages = [f"Avg speed factor: {speed_factor:.3f} (over last {elapsed_real:.2f} seconds)"]
-        if game.state is None:
-            messages.append("No messages received from GameController yet")
-        else:
-            messages.append(f"state: {game.state.game_state}, remaining time: {game.state.seconds_remaining}")
-            if game.state.secondary_state in GAME_INTERRUPTIONS:
-                messages.append(f"  sec_state: {game.state.secondary_state} phase: {game.state.secondary_state_info[1]}")
-        messages = [f"STATUS: {m}" for m in messages]
-        info(messages)
-        game.last_real_time = now
-        game.last_time_count = time_count
-
-
 def toss_a_coin_if_needed(attribute):  # attribute should be either "side_left" or "kickoff"
     # If game.json contains such an attribute, use it to determine field side and kick-off
     # Supported values are "red", "blue" and "random". Default value is "random".
@@ -239,18 +212,14 @@ def format_time(s):
     return minutes + ':' + seconds
 
 
-def update_time_display():
-    if game.state:
-        s = game.state.seconds_remaining
-        if s < 0:
-            s = -s
-            sign = '-'
-        else:
-            sign = ' '
-        value = format_time(s)
+def update_time_display(now):
+    s = now
+    if s < 0:
+        s = -s
+        sign = '-'
     else:
         sign = ' '
-        value = '--:--'
+    value = format_time(s)
     supervisor.setLabel(6, sign + value, 0, 0, game.font_size, 0x000000, 0.2, game.font)
 
 
@@ -385,7 +354,7 @@ def update_team_display():
 
 def setup_display():
     update_team_display()
-    update_time_display()
+    #update_time_display()
     update_state_display()
 
 
@@ -397,84 +366,6 @@ def team_index(color):
     if game.state.teams[index].team_number != id:
         raise RuntimeError(f'Wrong team number set in team_index(): {id} != {game.state.teams[index].team_number}')
     return index
-
-def distance2(v1, v2):
-    return math.sqrt((v1[0] - v2[0]) ** 2 + (v1[1] - v2[1]) ** 2)
-
-
-def append_solid(solid, solids, tagged_solids, active_tag=None):  # we list only the hands and feet
-    name_field = solid.getField('name')
-    if name_field:
-        name = name_field.getSFString()
-        tag_start = name.rfind('[')
-        tag_end = name.rfind(']')
-        if tag_start != -1 and tag_end != -1:
-            active_tag = name[tag_start+1:tag_end]
-        if name.endswith("[hand]") or name.endswith("[foot]"):
-            solids.append(solid)
-        if active_tag is not None:
-            tagged_solids[name] = active_tag
-    children = solid.getProtoField('children') if solid.isProto() else solid.getField('children')
-    for i in range(children.getCount()):
-        child = children.getMFNode(i)
-        if child.getType() in [Node.ROBOT, Node.SOLID, Node.GROUP, Node.TRANSFORM, Node.ACCELEROMETER, Node.CAMERA, Node.GYRO,
-                               Node.TOUCH_SENSOR]:
-            append_solid(child, solids, tagged_solids, active_tag)
-            continue
-        if child.getType() in [Node.HINGE_JOINT, Node.HINGE_2_JOINT, Node.SLIDER_JOINT, Node.BALL_JOINT]:
-            endPoint = child.getProtoField('endPoint') if child.isProto() else child.getField('endPoint')
-            solid = endPoint.getSFNode()
-            if solid.getType() == Node.NO_NODE or solid.getType() == Node.SOLID_REFERENCE:
-                continue
-            append_solid(solid, solids, tagged_solids, None)  # active tag is reset after a joint
-
-
-def list_player_solids(player, color, number):
-    robot = player['robot']
-    player['solids'] = []
-    player['tagged_solids'] = {}  # Keys: name of solid, Values: name of tag
-    solids = player['solids']
-    append_solid(robot, solids, player['tagged_solids'])
-    if len(solids) != 4:
-        info(f"Tagged solids: {player['tagged_solids']}")
-        error(f'{color} player {number}: invalid number of [hand]+[foot], received {len(solids)}, expected 4.',
-              fatal=True)
-
-
-def list_team_solids(team):
-    for number in team['players']:
-        list_player_solids(team['players'][number], team['color'], number)
-
-
-def list_solids():
-    list_team_solids(red_team)
-    list_team_solids(blue_team)
-
-
-def area(x1, y1, x2, y2, x3, y3):
-    return abs((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2.0)
-
-
-def show_polygon(vertices):
-    polygon = supervisor.getFromDef('POLYGON')
-    if polygon:
-        polygon.remove()
-    material = 'Material { diffuseColor 1 1 0 }'
-    appearance = f'Appearance {{ material {material} }}'
-    point = 'point ['
-    for vertex in vertices:
-        point += ' ' + str(vertex[0]) + ' ' + str(vertex[1]) + f' {game.field.turf_depth + 0.001},'  # 1 mm above turf
-    point = point[:-1]
-    point += ' ]'
-    coord = f'Coordinate {{ {point} }}'
-    coordIndex = '['
-    for i in range(len(vertices)):
-        coordIndex += ' ' + str(i)
-    coordIndex += ' -1 ]'
-    geometry = f'IndexedFaceSet {{ coord {coord} coordIndex {coordIndex} }}'
-    shape = f'DEF POLYGON Shape {{ appearance {appearance} geometry {geometry} castShadows FALSE isPickable FALSE }}'
-    children = supervisor.getRoot().getField('children')
-    children.importMFNodeFromString(-1, shape)
 
 
 def init_team(team):
@@ -501,21 +392,6 @@ def init_team(team):
         player['contact_points'] = []
 
 
-def set_ball_touched(team_color, player_number):
-    game.ball_previous_touch_team = game.ball_last_touch_team
-    game.ball_previous_touch_player_number = game.ball_last_touch_player_number
-    game.ball_last_touch_team = team_color
-    game.ball_last_touch_player_number = player_number
-    game.dropped_ball = False
-
-
-def reset_ball_touched():
-    game.ball_previous_touch_team = 'blue'
-    game.ball_previous_touch_player_number = 1
-    game.ball_last_touch_team = 'blue'
-    game.ball_last_touch_player_number = 1
-
-
 def flip_pose(pose):
     pose['translation'][0] = -pose['translation'][0]
     pose['rotation'][3] = math.pi - pose['rotation'][3]
@@ -526,82 +402,6 @@ def flip_poses(player):
     flip_pose(player['reentryStartingPose'])
     flip_pose(player['shootoutStartingPose'])
     flip_pose(player['goalKeeperStartingPose'])
-
-
-def interruption(interruption_type, team=None, location=None, is_goalkeeper_ball_manipulation=False):
-    if location is not None:
-        game.ball_kick_translation[:2] = location[:2]
-    if interruption_type == 'FREEKICK':
-        own_side = (game.side_left == team) ^ (game.ball_position[0] < 0)
-        inside_penalty_area = game.field.circle_fully_inside_penalty_area(game.ball_position, game.ball_radius)
-        if inside_penalty_area and own_side:
-            if is_goalkeeper_ball_manipulation:
-                # move the ball on the penalty line parallel to the goal line
-                dx = game.field.size_x - game.field.penalty_area_length
-                dy = game.field.penalty_area_width / 2
-                moved = False
-                if abs(location[0]) > dx:
-                    game.ball_kick_translation[0] = dx * (-1 if location[0] < 0 else 1)
-                    moved = True
-                if abs(location[1]) > dy:
-                    game.ball_kick_translation[1] = dy * (-1 if location[1] < 0 else 1)
-                    moved = True
-                if moved:
-                    info(f'Moved the ball on the penalty line at {game.ball_kick_translation}')
-                interruption_type = 'INDIRECT_FREEKICK'
-            else:
-                interruption_type = 'PENALTYKICK'
-                ball_reset_location = [game.field.penalty_mark_x, 0]
-                if location[0] < 0:
-                    ball_reset_location[0] *= -1
-        else:
-            interruption_type = 'DIRECT_FREEKICK'
-        game.can_score = interruption_type != 'INDIRECT_FREEKICK'
-    game.in_play = None
-    game.can_score_own = False
-    game.ball_set_kick = True
-    game.interruption = interruption_type
-    game.phase = interruption_type
-    game.ball_first_touch_time = 0
-    game.interruption_countdown = SIMULATED_TIME_INTERRUPTION_PHASE_0
-    info(f'Interruption countdown set to {game.interruption_countdown}')
-    if not team:
-        game.interruption_team = game.red.id if game.ball_last_touch_team == 'blue' else game.blue.id
-    else:
-        game.interruption_team = team
-    game.ball_must_kick_team = 'red' if game.interruption_team == game.red.id else 'blue'
-    reset_ball_touched()
-    info(f'Ball not in play, will be kicked by a player from the {game.ball_must_kick_team} team.')
-    color = 'red' if game.interruption_team == game.red.id else 'blue'
-    info(f'{GAME_INTERRUPTIONS[interruption_type].capitalize()} awarded to {color} team.')
-    #game_controller_send(f'{game.interruption}:{game.interruption_team}')
-
-
-def move_ball_away():
-    """Places ball far away from field for phases where the referee is supposed to hold it in it's hand"""
-    target_location = [100, 100, game.ball_radius + 0.05]
-    game.ball.resetPhysics()
-    game.ball_translation.setSFVec3f(target_location)
-    info("Moved ball out of the field temporarily")
-
-
-def kickoff():
-    color = 'red' if game.kickoff == game.red.id else 'blue'
-    info(f'Kick-off is {color}.')
-    game.phase = 'KICKOFF'
-    game.ball_kick_translation[0] = 0
-    game.ball_kick_translation[1] = 0
-    game.ball_set_kick = True
-    game.ball_first_touch_time = 0
-    game.in_play = None
-    game.ball_must_kick_team = color
-    reset_ball_touched()
-    game.ball_left_circle = None  # one can score only after ball went out of the circle
-    game.can_score = False        # or was touched by another player
-    game.can_score_own = False
-    game.kicking_player_number = None
-    move_ball_away()
-    info(f'Ball not in play, will be kicked by a player from the {game.ball_must_kick_team} team.')
 
 
 def read_team(json_path):
@@ -685,7 +485,6 @@ if not hasattr(game, 'minimum_real_time_factor'):
     game.minimum_real_time_factor = 3  # we garantee that each time step lasts at least 3x simulated time
 if game.minimum_real_time_factor == 0:  # speed up non-real time tests
     REAL_TIME_BEFORE_FIRST_READY_STATE = 5
-    HALF_TIME_BREAK_REAL_TIME_DURATION = 2
 if not hasattr(game, 'press_a_key_to_terminate'):
     game.press_a_key_to_terminate = False
 if game.type not in ['NORMAL', 'KNOCKOUT', 'PENALTY']:
@@ -698,7 +497,6 @@ else:
     info(f'Simulation will guarantee a maximum {1 / game.minimum_real_time_factor:.2f}x speed for each time step.')
 field_size = getattr(game, 'class').lower()
 game.field = Field(field_size)
-
 
 red_team['color'] = 'red'
 blue_team['color'] = 'blue'
@@ -736,58 +534,17 @@ spawn_team(red_team, game.side_left == game.blue.id, children)
 spawn_team(blue_team, game.side_left == game.red.id, children)
 setup_display()
 
-SIMULATED_TIME_INTERRUPTION_PHASE_0 = int(SIMULATED_TIME_INTERRUPTION_PHASE_0 * 1000 / time_step)
-SIMULATED_TIME_BEFORE_PLAY_STATE = int(SIMULATED_TIME_BEFORE_PLAY_STATE * 1000 / time_step)
-SIMULATED_TIME_SET_PENALTY_SHOOTOUT = int(SIMULATED_TIME_SET_PENALTY_SHOOTOUT * 1000 / time_step)
-players_ball_holding_time_window_size = int(1000 * PLAYERS_BALL_HOLDING_TIMEOUT / time_step)
-goalkeeper_ball_holding_time_window_size = int(1000 * GOALKEEPER_BALL_HOLDING_TIMEOUT / time_step)
-red_team['players_holding_time_window'] = np.zeros(players_ball_holding_time_window_size, dtype=bool)
-red_team['goalkeeper_holding_time_window'] = np.zeros(goalkeeper_ball_holding_time_window_size, dtype=bool)
-blue_team['players_holding_time_window'] = np.zeros(players_ball_holding_time_window_size, dtype=bool)
-blue_team['goalkeeper_holding_time_window'] = np.zeros(goalkeeper_ball_holding_time_window_size, dtype=bool)
-
-
-list_solids()  # prepare lists of solids to monitor in each robot to compute the convex hulls
-
-game.penalty_shootout_count = 0
-game.penalty_shootout_goal = False
-game.penalty_shootout_time_to_score = [None, None, None, None, None, None, None, None, None, None]
-game.penalty_shootout_time_to_reach_goal_area = [None, None, None, None, None, None, None, None, None, None]
-game.penalty_shootout_time_to_touch_ball = [None, None, None, None, None, None, None, None, None, None]
 game.ball = supervisor.getFromDef('BALL')
 game.ball_radius = 0.07 if field_size == 'kid' else 0.1125
 game.ball_kick_translation = [0, 0, game.ball_radius + game.field.turf_depth]  # initial position of ball before kick
+game.ball = supervisor.getFromDef('BALL')
 game.ball_translation = supervisor.getFromDef('BALL').getField('translation')
-game.ball_exit_translation = None
-reset_ball_touched()
-game.ball_last_touch_time = 0
-game.ball_first_touch_time = 0
-game.ball_last_touch_time_for_display = 0
 game.ball_position = [0, 0, 0]
-game.ball_last_move = 0
-game.real_time_multiplier = 1000 / (game.minimum_real_time_factor * time_step) if game.minimum_real_time_factor > 0 else 10
 game.interruption = None
-game.interruption_countdown = 0
-game.interruption_step = None
-game.interruption_step_time = 0
 game.interruption_team = None
 game.interruption_seconds = None
-game.dropped_ball = False
-game.overtime = False
-game.finished_overtime = False
-game.ready_countdown = 0  # simulated time countdown before ready state (used in kick-off after goal and dropped ball)
-game.play_countdown = 0
-game.in_play = None
-game.throw_in = False  # True while throwing in to allow ball handling
-game.throw_in_ball_was_lifted = False  # True if the throwing-in player lifted the ball
 game.over = False
-game.wait_for_state = 'INITIAL'
-game.wait_for_sec_state = None
-game.wait_for_sec_phase = None
-game.forceful_contact_matrix = ForcefulContactMatrix(len(red_team['players']), len(blue_team['players']),
-                                                     FOUL_PUSHING_PERIOD, FOUL_PUSHING_TIME, time_step)
-
-previous_seconds_remaining = 0
+game.goal = False
 
 try:
     update_state_display()
@@ -798,47 +555,61 @@ try:
     if hasattr(game, 'supervisor'):  # optional supervisor used for CI tests
         children.importMFNodeFromString(-1, f'DEF TEST_SUPERVISOR Robot {{ supervisor TRUE controller "{game.supervisor}" }}')
 
-    if game.penalty_shootout:
-        info(f'{"Red" if game.kickoff == game.red.id else "Blue"} team will start the penalty shoot-out.')
-        game.phase = 'PENALTY-SHOOTOUT'
-        game.ready_real_time = None
-        info(f'Penalty start: Waiting {REAL_TIME_BEFORE_FIRST_READY_STATE} seconds (real-time) before going to SET')
-        game.set_real_time = time.time() + REAL_TIME_BEFORE_FIRST_READY_STATE  # real time for set state (penalty-shootout)
-    else:
-        info(f'Regular start: Waiting {REAL_TIME_BEFORE_FIRST_READY_STATE} seconds (real-time) before going to READY')
-        game.ready_real_time = time.time() + REAL_TIME_BEFORE_FIRST_READY_STATE  # real time for ready state (initial kick-off)
-        kickoff()
 except Exception:
     error(f"Failed setting initial state: {traceback.format_exc()}", fatal=True)
 
 try:
-    previous_real_time = time.time()
+    start_time = int(time.time())
+    previous_real_time = int(time.time())
     game.ball_translation.setSFVec3f(game.ball_position)
     while supervisor.step(time_step) != -1 and not game.over:
         set_positions_shared_memory()
-        perform_status_update()
-        send_play_state_after_penalties = False
-        previous_position = copy.deepcopy(game.ball_position)
+        now_time = int(time.time())
+        if now_time != previous_real_time:
+            previous_real_time == now_time
+            update_time_display(now_time - start_time)
+            if (now_time - start_time == 3 and game.goal):
+                supervisor.setLabel(19, "Push webots start", 0.0, 0.8, 0.3, 0x0000FF, 0.0, game.font)
+                supervisor.simulationSetMode(Supervisor.SIMULATION_MODE_PAUSE)
+                player = blue_team['players']['1']
+                robot = player['robot']
+                robot.resetPhysics()
+                robot.getField('translation').setSFVec3f([-3.5, -3.1, 0.439])
+                robot.getField('rotation').setSFRotation([0, 0, 1, 1.57])
+            if (now_time - start_time > 5 and game.goal):
+                game.goal = False
+                supervisor.setLabel(18, "", 0.2, 0.2, 1.0, 0xFF0000, 0.0, game.font)
+                supervisor.setLabel(19, "", 0.0, 0.8, 0.3, 0x0000FF, 0.0, game.font)
+                start_time = int(time.time())
+
         game.ball_position = game.ball_translation.getSFVec3f()
-        if game.ball_position != previous_position:
-            game.ball_last_move = time_count
         for team in [blue_team, red_team]:
             for number in team['players']:
                 player = team['players'][number]
                 if player['robot'] is None:
                     continue
                 player['position'] = player['robot'].getCenterOfMass()
-        if True:
 
-                game.ball_exit_translation = game.ball_position
-                scoring_team = None
-                if game.ball_position[0] + game.ball_radius < -game.field.size_x:
-                    if game.ball_position[1] < GOAL_HALF_WIDTH and \
-                       game.ball_position[1] > -GOAL_HALF_WIDTH and \
-                       game.ball_position[2] < game.field.goal_height:
-                        # goal
-                        scoring_team = game.red.id if game.blue.id == game.side_left else game.blue.id
-                        info(f'Goal')
+        if game.ball_position[0] > game.field.size_x:
+            if game.ball_position[1] < GOAL_HALF_WIDTH and \
+               game.ball_position[1] > -GOAL_HALF_WIDTH and \
+               game.ball_position[2] < game.field.goal_height:
+               # goal
+                game.goal = True;
+                supervisor.setLabel(18, "GOAL", 0.2, 0.2, 1.0, 0xFF0000, 0.0, game.font)
+            game.ball.resetPhysics()
+            game.ball_translation.setSFVec3f([0.0, 0.0, 0.0])
+            start_time = int(time.time())
+        if abs(game.ball_position[1]) > game.field.size_y or game.ball_position[0] < -game.field.size_x:
+            game.ball.resetPhysics()
+            game.ball_translation.setSFVec3f([0.0, 0.0, 0.0])
+            start_time = int(time.time())
+        if now_time - start_time > 120:
+            game.goal = True;
+            supervisor.setLabel(18, "TIME OVER", 0.1, 0.2, 0.3, 0xFF0000, 0.0, game.font)
+            game.ball.resetPhysics()
+            game.ball_translation.setSFVec3f([0.0, 0.0, 0.0])
+            start_time = int(time.time())
 
 except Exception:
     error(f"Unexpected exception in main referee loop: {traceback.format_exc()}", fatal=True)

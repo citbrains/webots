@@ -584,6 +584,11 @@ try:
                 robot.resetPhysics()
                 robot.getField('translation').setSFVec3f([-3.5, -3.1, 0.439])
                 robot.getField('rotation').setSFRotation([0, 0, 1, 1.57])
+                player = red_team['players']['1']
+                robot = player['robot']
+                robot.resetPhysics()
+                robot.getField('translation').setSFVec3f([3.5, 3.1, 0.439])
+                robot.getField('rotation').setSFRotation([0, 0, 1, -1.57])
                 game.finish= False
                 game.pause = True
 
@@ -595,7 +600,7 @@ try:
                     continue
                 player['position'] = player['robot'].getCenterOfMass()
 
-        if game.ball_position[0] > game.field.size_x:
+        if game.ball_position[0] < -game.field.size_x:
             if game.ball_position[1] < GOAL_HALF_WIDTH and \
                game.ball_position[1] > -GOAL_HALF_WIDTH and \
                game.ball_position[2] < game.field.goal_height:
@@ -604,7 +609,7 @@ try:
                 supervisor.setLabel(18, "GOAL", 0.2, 0.2, 1.0, 0xFF0000, 0.0, game.font)
             game.ball.resetPhysics()
             game.ball_translation.setSFVec3f([0.0, 0.0, 0.0])
-        if abs(game.ball_position[1]) > game.field.size_y or game.ball_position[0] < -game.field.size_x:
+        if abs(game.ball_position[1]) > game.field.size_y or game.ball_position[0] > game.field.size_x:
             game.finish = True;
             game.ball.resetPhysics()
             game.ball_translation.setSFVec3f([0.0, 0.0, 0.0])

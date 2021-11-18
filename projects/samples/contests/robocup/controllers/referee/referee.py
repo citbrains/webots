@@ -213,15 +213,17 @@ def format_time(s):
 
 
 def update_time_display(now):
-    s = now
+    s = 120 - now
     if s < 0:
         s = -s
         sign = '-'
     else:
         sign = ' '
     value = format_time(s)
-    supervisor.setLabel(6, sign + value, 0, 0, game.font_size, 0x000000, 0.2, game.font)
-
+    if s > 30:
+        supervisor.setLabel(6, sign + value, 0, 0, game.font_size, 0x000000, 0.2, game.font)
+    else:
+        supervisor.setLabel(6, sign + value, 0, 0, game.font_size, 0xFF0000, 0.2, game.font)
 
 def update_state_display():
     if game.state:
@@ -528,7 +530,7 @@ ball_size = 1 if field_size == 'kid' else 5
 children.importMFNodeFromString(-1, f'DEF BALL RobocupSoccerBall {{ translation 100 100 0.5 size {ball_size} }}')
 
 game.state = None
-game.font_size = 0.096
+game.font_size = 0.2
 game.font = 'Lucida Console'
 spawn_team(red_team, game.side_left == game.blue.id, children)
 spawn_team(blue_team, game.side_left == game.red.id, children)
@@ -544,7 +546,8 @@ game.interruption = None
 game.interruption_team = None
 game.interruption_seconds = None
 game.over = False
-game.goal = False
+game.finish = False
+game.pause = False
 
 try:
     update_state_display()
@@ -568,7 +571,12 @@ try:
         if now_time != previous_real_time:
             previous_real_time == now_time
             update_time_display(now_time - start_time)
-            if (now_time - start_time == 3 and game.goal):
+            if game.pause:
+                game.pause = False
+                supervisor.setLabel(18, "", 0.2, 0.2, 1.0, 0xFF0000, 0.0, game.font)
+                supervisor.setLabel(19, "", 0.0, 0.8, 0.3, 0x0000FF, 0.0, game.font)
+                start_time = int(time.time())
+            if game.finish:
                 supervisor.setLabel(19, "Push webots start", 0.0, 0.8, 0.3, 0x0000FF, 0.0, game.font)
                 supervisor.simulationSetMode(Supervisor.SIMULATION_MODE_PAUSE)
                 player = blue_team['players']['1']
@@ -576,11 +584,8 @@ try:
                 robot.resetPhysics()
                 robot.getField('translation').setSFVec3f([-3.5, -3.1, 0.439])
                 robot.getField('rotation').setSFRotation([0, 0, 1, 1.57])
-            if (now_time - start_time > 5 and game.goal):
-                game.goal = False
-                supervisor.setLabel(18, "", 0.2, 0.2, 1.0, 0xFF0000, 0.0, game.font)
-                supervisor.setLabel(19, "", 0.0, 0.8, 0.3, 0x0000FF, 0.0, game.font)
-                start_time = int(time.time())
+                game.finish= False
+                game.pause = True
 
         game.ball_position = game.ball_translation.getSFVec3f()
         for team in [blue_team, red_team]:
@@ -595,21 +600,19 @@ try:
                game.ball_position[1] > -GOAL_HALF_WIDTH and \
                game.ball_position[2] < game.field.goal_height:
                # goal
-                game.goal = True;
+                game.finish = True;
                 supervisor.setLabel(18, "GOAL", 0.2, 0.2, 1.0, 0xFF0000, 0.0, game.font)
             game.ball.resetPhysics()
             game.ball_translation.setSFVec3f([0.0, 0.0, 0.0])
-            start_time = int(time.time())
         if abs(game.ball_position[1]) > game.field.size_y or game.ball_position[0] < -game.field.size_x:
+            game.finish = True;
             game.ball.resetPhysics()
             game.ball_translation.setSFVec3f([0.0, 0.0, 0.0])
-            start_time = int(time.time())
-        if now_time - start_time > 120:
-            game.goal = True;
+        if now_time - start_time >= 120:
+            game.finish = True;
             supervisor.setLabel(18, "TIME OVER", 0.1, 0.2, 0.3, 0xFF0000, 0.0, game.font)
             game.ball.resetPhysics()
             game.ball_translation.setSFVec3f([0.0, 0.0, 0.0])
-            start_time = int(time.time())
 
 except Exception:
     error(f"Unexpected exception in main referee loop: {traceback.format_exc()}", fatal=True)

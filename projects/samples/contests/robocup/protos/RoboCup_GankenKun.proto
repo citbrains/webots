@@ -25,8 +25,8 @@ PROTO RoboCup_GankenKun [
     customData IS customData
     controller "player"
     selfCollision TRUE
-    cameraWidth 640
-    cameraHeight 480
+    cameraWidth 320
+    cameraHeight 240
     enable_backlash IS enable_backlash
     %{
       if fields.name.value ~= '' then

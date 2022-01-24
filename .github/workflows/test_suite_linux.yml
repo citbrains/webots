@@ -30,13 +30,14 @@ jobs:
             JAVA_VERSION: "11"
             ROS_DISTRO: "melodic"
           - os: ubuntu-20.04
-            JAVA_VERSION: "14"
+            JAVA_VERSION: "16"
             ROS_DISTRO: "noetic"
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
       with:
          submodules: true
+         fetch-depth: 15
     - name: Install Webots Compilation Dependencies
       run: |
         # GitHub Actions `libzip-dev` hotfix
@@ -56,12 +57,12 @@ jobs:
         export ROS_DISTRO=${{ matrix.ROS_DISTRO }}
         xvfb-run --auto-servernum make distrib -j4
     - name: Prepare Webots Controller Deployment
-      if: ${{ github.event_name == 'schedule' }}
-      uses: webfactory/ssh-agent@v0.5.2
+      if: ${{ github.event_name == 'schedule' && matrix.os == 'ubuntu-18.04' }}
+      uses: webfactory/ssh-agent@v0.5.3
       with:
         ssh-private-key: ${{ secrets.WEBOTS_CONTROLLER_DEPLOY_KEY }}
     - name: Deploy Webots Controller
-      if: ${{ github.event_name == 'schedule' }}
+      if: ${{ github.event_name == 'schedule' && matrix.os == 'ubuntu-18.04' }}
       run: scripts/packaging/sync_controller_lib.sh
     - name: Rename Webots Tarball Package
       if: ${{ matrix.os == 'ubuntu-18.04' }}
@@ -103,7 +104,7 @@ jobs:
     - name: Extract Webots
       run: tar xjf artifact/webots-*-x86-64*.tar.bz2 -C artifact
     - name: Install Webots Dependencies
-      run: sudo scripts/install/linux_test_dependencies.sh
+      run: sudo scripts/install/linux_test_dependencies.sh --exclude-ros
     - name: Set up Python 3.9
       uses: actions/setup-python@v2
       with:
@@ -112,6 +113,7 @@ jobs:
       run: |
         export LIBGL_ALWAYS_SOFTWARE=true
         export WEBOTS_DISABLE_SAVE_SCREEN_PERSPECTIVE_ON_CLOSE=true
+        xvfb-run --auto-servernum python scripts/packaging/update_urls.py ${{ github.sha }}
         export WEBOTS_HOME=$PWD/artifact/webots
         xvfb-run --auto-servernum python tests/test_suite.py
   test-ros:
@@ -137,15 +139,11 @@ jobs:
     - name: Extract Webots
       run: tar xjf artifact/webots-*-x86-64*.tar.bz2 -C artifact
     - name: Install Webots Dependencies
-      run: sudo scripts/install/linux_runtime_dependencies.sh
+      run: sudo scripts/install/linux_test_dependencies.sh --norecurse
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python }}
-    - name: Setup ROS ${{ matrix.ROS_DISTRO }} environment
-      uses: ros-tooling/setup-ros@0.2.1
-      with:
-        required-ros-distributions: ${{ matrix.ROS_DISTRO }}
     - name: Run Test
       run: |
         export WEBOTS_HOME=$PWD/artifact/webots

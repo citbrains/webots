@@ -43,8 +43,32 @@ PROTO RoboCup_GankenKun [
     ]
     %{ if color == "red" then }%
       jerseyColor 1, 0, 0
+      %{ if number == "1" then }%
+        recognitionColors [0.0 1.0 1.0]
+      %{ end }%
+      %{ if number == "2" then }%
+        recognitionColors [0.0 1.0 0.9]
+      %{ end }%
+      %{ if number == "3" then }%
+        recognitionColors [0.0 1.0 0.8]
+      %{ end }%
+      %{ if number == "4" then }%
+        recognitionColors [0.0 1.0 0.7]
+      %{ end }%
     %{ else }%
       jerseyColor 0, 0, 1
+      %{ if number == "1" then }%
+        recognitionColors [0.0 0.0 1.0]
+      %{ end }%
+      %{ if number == "2" then }%
+        recognitionColors [0.0 0.0 0.9]
+      %{ end }%
+      %{ if number == "3" then }%
+        recognitionColors [0.0 0.0 0.8]
+      %{ end }%
+      %{ if number == "4" then }%
+        recognitionColors [0.0 0.0 0.7]
+      %{ end }%
     %{ end }%
     %{
       end

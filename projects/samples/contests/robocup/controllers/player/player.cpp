@@ -654,8 +654,8 @@ public:
         static int counter = 0;
         if (counter > 1000/16) {
             counter = 0;
-            camera->saveImage(capture_save_path + "/image" + std::to_string(number) + ".jpg", 80);
-            camera->saveRecognitionSegmentationImage(capture_save_path + "/image" + std::to_string(number) + "r.jpg", 80);
+            camera->saveImage(capture_save_path + "/image" + std::to_string(number) + ".png", 100);
+            camera->saveRecognitionSegmentationImage(capture_save_path + "/image" + std::to_string(number) + "r.png", 100);
             number ++;
         } else {
             counter ++;

@@ -11,6 +11,7 @@ PROTO RobocupTexturedSoccerBall [
   field SFString   name         "robocup soccer ball"
   field SFInt32{1,2,3,4,5}      size 1 # Defines the ball size and mass according to FIFA standards.
   field SFString{"telstar","teamgeist","europass", "jabulani", "tango"}            texture "telstar"
+  field MFColor recognitionColors [1.0 0.0 0.0]
 ]
 {
   %<
@@ -24,6 +25,7 @@ PROTO RobocupTexturedSoccerBall [
   Solid {
     translation IS translation
     rotation IS rotation
+    recognitionColors IS recognitionColors
     scale %<= scale >% %<= scale >% %<= scale >%
     children [
       DEF BALL_SHAPE Shape {

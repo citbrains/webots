@@ -12,6 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define AUTO_ANNOTATION 1
+
+#if AUTO_ANNOTATION
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#include <iostream>
+#include <ctime>
+#include <iomanip>
+#endif
+
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -425,6 +435,18 @@ public:
       case webots::Node::CAMERA: {
         webots::Camera *camera = static_cast<webots::Camera *>(device);
         camera->enable(time_step);
+#if AUTO_ANNOTATION
+        camera->recognitionEnable(time_step);
+        camera->enableRecognitionSegmentation();
+
+        std::string capture_dir("/robocup-logs/game_images");
+        fs::create_directories(capture_dir);
+        std::stringstream ss_capture;
+        auto now_t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        ss_capture << capture_dir << "/player" << std::to_string(player_id) << "_" << std::put_time(std::localtime(&now_t), "%Y%m%dT%H%M%S");
+        capture_save_path = ss_capture.str();
+        fs::create_directory(capture_save_path);
+#endif
         break;
       }
       case webots::Node::GYRO: {
@@ -628,6 +650,17 @@ public:
           rgb_image[3 * i + 2] = rgba_image[4 * i + 2];
         }
         measurement->set_image(rgb_image, rgb_image_size);
+#if AUTO_ANNOTATION
+        static int counter = 0;
+        if (counter > 1000/16) {
+            counter = 0;
+            camera->saveImage(capture_save_path + "/image" + std::to_string(number) + ".jpg", 80);
+            camera->saveRecognitionSegmentationImage(capture_save_path + "/image" + std::to_string(number) + "r.jpg", 80);
+            number ++;
+        } else {
+            counter ++;
+        }
+#endif
         delete[] rgb_image;
 
 #ifdef JPEG_COMPRESSION
@@ -812,6 +845,10 @@ private:
   static int camera_min_time_step;
   /// The rendering bandwidth allowed for a team [MB/s] (per simulated second)
   static double team_rendering_quota;
+#if AUTO_ANNOTATION
+  std::string capture_save_path;
+  int number = 0;
+#endif
 
 public:
   static int nb_robots_in_team;

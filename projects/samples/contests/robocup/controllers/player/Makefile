@@ -20,7 +20,7 @@
 null :=
 space := $(null) $(null)
 WEBOTS_HOME_PATH=$(subst $(space),\ ,$(strip $(subst \,/,$(WEBOTS_HOME))))
-LIBRARIES = -lprotobuf -ljpeg
+LIBRARIES = -lprotobuf -ljpeg -lstdc++fs
 CXX_SOURCES = player.cpp messages.pb.cpp
 CFLAGS = -Wno-array-bounds
 FILES_TO_REMOVE = messages.pb.* client.exe client test_client.exe test_client

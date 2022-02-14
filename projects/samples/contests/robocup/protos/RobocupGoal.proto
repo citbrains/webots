@@ -11,6 +11,7 @@ PROTO RobocupGoal [
   field SFString   name               "robotstadium goal"
   field SFColor    netColor           0.3 0.3 0.3         # Defines the color of the net.
   field SFString{"adult", "kid"} size "kid"               # Defines the size of the field.
+  field MFColor    recognitionColors  [0.0 1.0 0.0]
 ]
 {
   %<
@@ -70,6 +71,22 @@ PROTO RobocupGoal [
               radius %<= post_radius >%
             }
           }
+          DEF RIGHT_POST Solid {
+            translation 0 %<= post_height / 5 / 2 - post_height / 2 >% 0
+            children [
+              Shape {
+                appearance USE POST_APP
+                geometry Cylinder {
+                  bottom FALSE
+                  top FALSE
+                  height %<= post_height / 5 >%
+                  radius %<= post_radius*1.1 >%
+                }
+              }
+            ]
+            name "right_post"
+            recognitionColors IS recognitionColors
+          }
         ]
       }
       DEF LEFT_POST_TRANS Transform {
@@ -84,6 +101,22 @@ PROTO RobocupGoal [
               height %<= post_height >%
               radius %<= post_radius >%
             }
+          }
+          DEF LEFT_POST Solid {
+            translation 0 %<= post_height / 5 / 2 - post_height / 2 >% 0
+            children [
+              Shape {
+                appearance USE POST_APP
+                geometry Cylinder {
+                  bottom FALSE
+                  top FALSE
+                  height %<= post_height / 5 >%
+                  radius %<= post_radius*1.1 >%
+                }
+              }
+            ]
+            name "left_post"
+            recognitionColors IS recognitionColors
           }
         ]
       }

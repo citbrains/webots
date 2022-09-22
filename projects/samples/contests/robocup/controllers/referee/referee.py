@@ -126,7 +126,7 @@ class Referee:
             if 'GAME_CONTROLLER_UDP_FILTER' in os.environ else None
 
         self.setup()
-        self.display.setup_display()
+        self.display.update()
 
         self.status_update_last_real_time = None
         self.status_update_last_sim_time = None
@@ -336,7 +336,7 @@ class Referee:
                     self.logger.warning(f'Received unexpected state from GameController: {self.game.state.game_state} ' +
                                         f'while expecting {self.game.wait_for_state}')
                 else:
-                    self.logger.info(f"State has succesfully changed to {self.game.wait_for_state}")
+                    self.logger.info(f"State has successfully changed to {self.game.wait_for_state}")
                     self.game.wait_for_state = None
         new_sec_state = self.game.state.secondary_state
         new_sec_phase = self.game.state.secondary_state_info[1]
@@ -348,7 +348,7 @@ class Referee:
                                         f'{new_sec_state}:{new_sec_phase} '
                                         f'while expecting {self.game.wait_for_sec_state}:{self.game.wait_for_sec_phase}')
                 else:
-                    self.logger.info(f"State has succesfully changed to {new_sec_state}:{new_sec_phase}")
+                    self.logger.info(f"State has successfully changed to {new_sec_state}:{new_sec_phase}")
                     self.game.wait_for_sec_state = None
                     self.game.wait_for_sec_phase = None
         if self.game.state.game_state == 'STATE_PLAYING' and \
@@ -365,12 +365,12 @@ class Referee:
                     if self.game.in_play is None:
                         self.logger.info('Ball in play, can be touched by any player (10 seconds elapsed).')
                         self.game.ball_in_play(self.sim_time.get_ms())
-            self.display.update_time_display()
+            self.display.update()
         red = 0 if self.game.state.teams[0].team_color == 'RED' else 1
         blue = 1 if red == 0 else 0
         if previous_red_score != self.game.state.teams[red].score or \
                 previous_blue_score != self.game.state.teams[blue].score:
-            self.display.update_score_display()
+            self.display.update()
         # print(self.game.state.game_state)
         secondary_state = self.game.state.secondary_state
         secondary_state_info = self.game.state.secondary_state_info
@@ -406,7 +406,7 @@ class Referee:
                 previous_sec_state != new_sec_state or previous_sec_phase != new_sec_phase or \
                 previous_secondary_seconds_remaining != self.game.state.secondary_seconds_remaining or \
                 self.game.state.seconds_remaining <= 0:
-            self.display.update_state_display()
+            self.display.update()
 
     def game_controller_send(self, message):
         if message[:6] == 'STATE:' or message[:6] == 'SCORE:' or message == 'DROPPEDBALL':
@@ -1353,8 +1353,8 @@ class Referee:
         """
         Applies the associated actions for when a robot touches the ball during step 1 and 2 of game interruptions
 
-        1. If opponent touches the ball, robot receives a warning and RETAKE is sent
-        2. If team with game_interruption touched the ball, player receives warning and ABORT is sent
+        1. If opponent touches the ball, robot receives a WARN and RETAKE is sent
+        2. If team with game_interruption touched the ball, player receives a WARN and ABORT is sent
         """
         # Warnings only applies in step 1 and 2 of game interruptions
         team_id = self.game.red.id if team.color == 'red' else self.game.blue.id
@@ -1371,6 +1371,23 @@ class Referee:
             self.logger.info(f"Ball touched before execute, aborting {GAME_INTERRUPTIONS[self.game.interruption]}")
             self.game_controller_send(f'{self.game.interruption}:{self.game.interruption_team}:ABORT')
         self.game_controller_send(f'CARD:{team_id}:{number}:WARN')
+
+    def game_interruption_ball_holding(self, team):
+        """
+        Applies the associated actions for when a robot does ball holding duing an interruption
+
+        1. If opponent commits ball holding, RETAKE is sent
+        2. If team with game_interruption does ball holding game interruption continues
+        """
+        # Warnings only applies in step 1 and 2 of game interruptions
+        opponent = team != self.game.interruption_team
+        if opponent:
+            self.game.in_play = None
+            self.game.ball_set_kick = True
+            self.game.interruption_countdown = self.config.SIMULATED_TIME_INTERRUPTION_PHASE_0
+            self.logger.info(f"Ball holding by opponent team, retaking {GAME_INTERRUPTIONS[self.game.interruption]}")
+            self.logger.info(f"Reset interruption_countdown to {self.game.interruption_countdown}")
+            self.game_controller_send(f'{self.game.interruption}:{self.game.interruption_team}:RETAKE')
 
     def get_first_available_spot(self, team_color, number, reentry_pos):
         """Return the first available spot to enter on one side of the field given the reentry_pos"""
@@ -1471,7 +1488,7 @@ class Referee:
         for team in [self.red_team, self.blue_team]:
             for number, player in team.players.items():
                 self.flip_poses(player)
-        self.display.update_team_display()
+        self.display.update()
 
     def reset_player(self, color, number, pose, custom_t=None, custom_r=None):
         team = self.red_team if color == 'red' else self.blue_team
@@ -1956,16 +1973,20 @@ class Referee:
         self.toss_a_coin_if_needed('kickoff')
 
         children = self.supervisor.getRoot().getField('children')
+        if (hasattr(self.game, "texture_seed")):
+            random.seed(self.game.texture_seed)
         bg = random.choice(['stadium_dry', 'shanghai_riverside', 'ulmer_muenster', 'sunset_jhbcentral',
                             'sepulchral_chapel_rotunda', 'paul_lobe_haus', 'kiara_1_dawn'])
         luminosity = random.random() * 0.5 + 0.75  # random value between 0.75 and 1.25
+        ball_texture = random.choice(['telstar', 'teamgeist', 'europass', 'jabulani', 'tango'])
+        random.seed()
         children.importMFNodeFromString(-1, f'RoboCupBackground {{ texture "{bg}" luminosity {luminosity}}}')
         children.importMFNodeFromString(-1, f'RoboCupMainLight {{ texture "{bg}" luminosity {luminosity}}}')
         children.importMFNodeFromString(-1, f'RoboCupOffLight {{ texture "{bg}" luminosity {luminosity}}}')
         children.importMFNodeFromString(-1, f'RoboCupTopLight {{ texture "{bg}" luminosity {luminosity}}}')
         children.importMFNodeFromString(-1, f'RobocupSoccerField {{ size "{self.game.field_size}" }}')
         ball_size = 1 if self.game.field_size == 'kid' else 5
-        ball_texture = random.choice(['telstar', 'teamgeist', 'europass', 'jabulani', 'tango'])
+
         # the ball is initially very far away from the field
         children.importMFNodeFromString(-1, f'DEF BALL RobocupTexturedSoccerBall'
                                             f'{{ translation 100 100 0.5 size {ball_size} texture "{ball_texture}" }}')
@@ -2030,7 +2051,7 @@ class Referee:
             self.clean_exit()
 
         try:
-            self.display.update_state_display()
+            self.display.update()
             self.logger.info(f'Game type is {self.game.type}.')
             self.logger.info(f'Red team is "{self.red_team.name}", '
                              f'playing on {"left" if self.game.side_left == self.game.red.id else "right"} side.')
@@ -2174,7 +2195,7 @@ class Referee:
                             if self.game.penalty_shootout_time_to_reach_goal_area[c] is None:
                                 self.game.penalty_shootout_time_to_reach_goal_area[c] = 60 - self.game.state.seconds_remaining
                 if self.previous_seconds_remaining != self.game.state.seconds_remaining:
-                    self.display.update_state_display()
+                    self.display.update()
                     self.previous_seconds_remaining = self.game.state.seconds_remaining
                     # TODO find out why GC can send negative 'seconds_remaining' when secondary state is penaltykick
                     if self.game.state.game_state != "STATE_FINISHED" and self.game.state.seconds_remaining <= 0 and \
@@ -2187,7 +2208,7 @@ class Referee:
                                 break
                         elif self.game.state.first_half:
                             game_type = 'knockout ' if self.game.type == 'KNOCKOUT' and self.game.overtime else ''
-                            self.logger.info(f'End of {game_type} first half.')
+                            self.logger.info(f'End of {game_type}first half.')
                             self.flip_sides()
                             self.reset_teams('halfTimeStartingPose')
                             self.game.kickoff = self.game.blue.id if self.game.kickoff == self.game.red.id \
@@ -2381,7 +2402,7 @@ class Referee:
                 elif self.game.ready_real_time is not None:
                     # initial kick-off (1st, 2nd half, extended periods, penalty shootouts)
                     if self.game.ready_real_time <= time.time():
-                        self.logger.info('Real-time to wait elasped, moving to READY')
+                        self.logger.info('Real-time to wait elapsed, moving to READY')
                         self.game.ready_real_time = None
                         self.check_start_position()
                         self.game_controller_send('STATE:READY')
@@ -2414,9 +2435,13 @@ class Referee:
                 if not self.game.penalty_shootout:
                     ball_holding = self.check_ball_holding()       # check for ball holding fouls
                     if ball_holding:
-                        self.interruption('FREEKICK', ball_holding, self.game.ball_position)
+                        if self.is_game_interruption():
+                            self.game_interruption_ball_holding(ball_holding)
+                        else:
+                            self.interruption('FREEKICK', ball_holding, self.game.ball_position)
                 ball_handling = self.check_ball_handling()  # return team id if ball handling is performed by goalkeeper
                 if ball_handling and not self.game.penalty_shootout:
+                    # TODO check logic of the interruption
                     self.interruption('FREEKICK', ball_handling, self.game.ball_position, is_goalkeeper_ball_manipulation=True)
             self.check_penalized_in_field()                    # check for penalized robots inside the field
             if self.game.state.game_state != 'STATE_INITIAL':  # send penalties if needed

@@ -73,14 +73,14 @@ PROTO RobocupGoal [
             }
           }
           DEF RIGHT_POST Solid {
-            translation 0 %<= post_height / 5 / 2 - post_height / 2 >% 0
+            translation 0 0 0 #0 %<= post_height /  2 - post_height / 2 >% 0
             children [
               Shape {
                 appearance USE POST_APP
                 geometry Cylinder {
                   bottom FALSE
                   top FALSE
-                  height %<= post_height / 5 >%
+                  height %<= post_height  >%
                   radius %<= post_radius*1.1 >%
                 }
               }
@@ -104,14 +104,14 @@ PROTO RobocupGoal [
             }
           }
           DEF LEFT_POST Solid {
-            translation 0 %<= post_height / 5 / 2 - post_height / 2 >% 0
+            translation 0 %<= post_height  / 2 - post_height / 2 >% 0
             children [
               Shape {
                 appearance USE POST_APP
                 geometry Cylinder {
                   bottom FALSE
                   top FALSE
-                  height %<= post_height / 5 >%
+                  height %<= post_height >% 
                   radius %<= post_radius*1.1 >%
                 }
               }

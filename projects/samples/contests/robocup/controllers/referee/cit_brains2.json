@@ -48,8 +48,29 @@
       "dockerTag": "latest",
       "dockerCmd": "/run_all.sh GC",
       "halfTimeStartingPose": {
-        "translation": [-2.5, -3.1, 0.439],
+        "translation": [-0.75, -3.1, 0.439],
         "rotation": [0, 0, 1, 1.57]
+      },
+      "reentryStartingPose": {
+        "translation": [-3.0, -3.11, 0.439],
+        "rotation": [0, 0, 1, 1.57]
+      },
+      "shootoutStartingPose": {
+        "translation": [2.0, 0.0, 0.439],
+        "rotation": [0, 0, 1, 0.0]
+      },
+      "goalKeeperStartingPose": {
+        "translation": [-4.47, 0, 0.439],
+        "rotation": [0, 0, 1, 0]
+      }
+    },
+    "4": {
+      "proto": "RoboCup_GankenKun",
+      "dockerTag": "latest",
+      "dockerCmd": "/run_all.sh GC",
+      "halfTimeStartingPose": {
+        "translation": [-0.75, 3.1, 0.439],
+        "rotation": [0, 0, 1, -1.57]
       },
       "reentryStartingPose": {
         "translation": [-3.0, -3.11, 0.439],

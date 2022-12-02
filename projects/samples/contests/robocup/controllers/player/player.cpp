@@ -443,7 +443,7 @@ public:
         fs::create_directories(capture_dir);
         std::stringstream ss_capture;
         auto now_t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        ss_capture << capture_dir << "/player" << std::to_string(player_id) << "_" << std::put_time(std::localtime(&now_t), "%Y%m%dT%H%M%S");
+        ss_capture << capture_dir << "/player" << std::to_string(player_id) << "_" << team_color_ << "_" << std::put_time(std::localtime(&now_t), "%Y%m%dT%H%M%S");
         capture_save_path = ss_capture.str();
         fs::create_directory(capture_save_path);
 #endif
@@ -782,6 +782,7 @@ public:
 
   void printMessage(const std::string &msg) {
     const char *team_name = team == RED ? "RED" : "BLUE";
+	team_color_ = team_name;
     printf("%s %d: %s\n", team_name, player_id, msg.c_str());
   }
 
@@ -803,6 +804,7 @@ private:
   int port;
   int player_id;
   int team;
+  std::string team_color_;
   int server_fd;
   int client_fd;
   bool actuators_enabled;

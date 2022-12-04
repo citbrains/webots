@@ -733,58 +733,58 @@ public:
           }
         }
       }
-      if((controller_time % 32) == 0)
-      {
-       int    fd;
-       long   size, pagesize;
-       const char *mm;
+	}
+	if((controller_time % 32) == 0)
+	{
+		int fd;
+      	long   size, pagesize;
+      	const char *mm;
 
-       while((fd=open("/tmp/position.txt",O_RDWR))== -1){
-         perror("wait: no position file (/tmp/position.txt)");
-         sleep(1);
-       }
+      	while((fd=open("/tmp/position.txt",O_RDWR))== -1){
+      		perror("wait: no position file (/tmp/position.txt)");
+      		sleep(1);
+		}
 
-       pagesize=sysconf(_SC_PAGE_SIZE);
-       size=(1000*sizeof(char)/pagesize+1)*pagesize;
+      	pagesize=sysconf(_SC_PAGE_SIZE);
+      	size=(1000*sizeof(char)/pagesize+1)*pagesize;
 
-       if(lseek(fd,0,SEEK_SET) < 0) {
-         perror("lseek error");
-         exit(-1);
-       }
+      	if(lseek(fd,0,SEEK_SET) < 0) {
+      		perror("lseek error");
+      		exit(-1);
+      	}
 
-       mm=(const char*)mmap(0,size,PROT_READ,MAP_SHARED,fd,0);
-       if ( mm == MAP_FAILED ) {
-         printf("mmap error!!\n");
-         exit(-1);
-       }
-       {
-         char name[100];
-         double x=0, y=0, z=0, q0=0, q1=0, q2=0, q3=0;
-         std::stringstream ss{mm};
-         std::string s;
-         std::vector<std::string> v;
-         while (getline(ss, s)){
-           v.push_back(s);
-         }
-         for (unsigned int i = 0; i < v.size() - 1; i ++)
-         {
-           sscanf(v[i].c_str(), "%s %lf %lf %lf %lf %lf %lf %lf", name, &x, &y, &z, &q0, &q1, &q2, &q3);
-//           printf("%s, %lf, %lf, %lf, %lf, %lf, %lf, %lf\r\n", name, x, y, z, q0, q1, q2, q3);
-           ObjectPosition *measurement = sensor_measurements.add_object_positions();
-           measurement->set_name(name);
-           Vector3 *vector3 = measurement->mutable_position();
-           vector3->set_x(x);
-           vector3->set_y(y);
-           vector3->set_z(z);
-           Vector4 *vector4 = measurement->mutable_rotation();
-           vector4->set_x(q0);
-           vector4->set_y(q1);
-           vector4->set_z(q2);
-           vector4->set_w(q3);
-         }
-       }
-       close(fd);
-      }
+      	mm=(const char*)mmap(0,size,PROT_READ,MAP_SHARED,fd,0);
+      	if ( mm == MAP_FAILED ) {
+      		printf("mmap error!!\n");
+      		exit(-1);
+      	}
+      	{
+      		char name[100];
+      		double x=0, y=0, z=0, q0=0, q1=0, q2=0, q3=0;
+      		std::stringstream ss{mm};
+      		std::string s;
+      		std::vector<std::string> v;
+      		while (getline(ss, s)){
+      		 	v.push_back(s);
+      		}
+      		for (unsigned int i = 0; i < v.size() - 1; i ++)
+      		{
+       			sscanf(v[i].c_str(), "%s %lf %lf %lf %lf %lf %lf %lf", name, &x, &y, &z, &q0, &q1, &q2, &q3);
+				//printf("%s, %lf, %lf, %lf, %lf, %lf, %lf, %lf\r\n", name, x, y, z, q0, q1, q2, q3);
+       			ObjectPosition *measurement = sensor_measurements.add_object_positions();
+       			measurement->set_name(name);
+       			Vector3 *vector3 = measurement->mutable_position();
+       			vector3->set_x(x);
+       			vector3->set_y(y);
+       			vector3->set_z(z);
+       			Vector4 *vector4 = measurement->mutable_rotation();
+       			vector4->set_x(q0);
+       			vector4->set_y(q1);
+       			vector4->set_z(q2);
+       			vector4->set_w(q3);
+      		}
+      	}
+      close(fd);
     }
     if (benchmark_level >= 4 && active_sensor != "") {
       std::cout << "\t\t" << active_sensor << " update time " << duration(sc::now() - sensor_start).count() << "ms"

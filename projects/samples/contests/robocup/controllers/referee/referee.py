@@ -43,6 +43,8 @@ from team import Team
 from sim_time import SimTime
 from blackboard import blackboard
 
+import mmap
+
 
 # game interruptions requiring a free kick procedure
 GAME_INTERRUPTIONS = {
@@ -88,6 +90,8 @@ class Referee:
             self.logger.error(f'Cannot read {self.game_config_file} game config file.')
             self.clean_exit()
 
+        with open("/tmp/position.txt", "w") as f:
+            f.write(str(' '*1000))
         # read game configuration
         with open(self.game_config_file) as json_file:
             game_data = json.loads(json_file.read())
@@ -646,6 +650,24 @@ class Referee:
         elif goalkeeper_hold_ball:
             team.goalkeeper_hold_ball = self.sim_time.get_ms()
             self.logger.info(f'{color.capitalize()} goalkeeper is holding the ball.')
+    def set_positions_shared_memory(self):
+        with open("/tmp/position.txt", "r+b") as f:
+            mm = mmap.mmap(f.fileno(), 0)
+            pos = self.game.ball_position
+            #rot = self.game.ball.getField('rotation').getSFRotation()
+            rot = [0, 0, 0, 0]
+            data = "ball " + format(pos[0], '.3f') + " " + format(pos[1], '.3f') + " " + format(pos[2], '.3f') + " " + format(rot[0], '.3f')  + " " + format(rot[1], '.3f')  + " " + format(rot[2], '.3f')  + " " + format(rot[3], '.3f') + " \r\n"
+            for team in [self.blue_team, self.red_team]:
+                for number, player in team.players.items():
+                    #player = team['players'][number]
+                    if player['robot'] is None:
+                        continue
+                    pos = player['position']
+                    rot = player['robot'].getField('rotation').getSFRotation()
+                    data += team.color + str(number) + " " + format(pos[0], '.3f') + " " + format(pos[1], '.3f') + " " + format(pos[2], '.3f') + " " + format(rot[0], '.3f')  + " " + format(rot[1], '.3f')  + " " + format(rot[2], '.3f')  + " " + format(rot[3], '.3f') + " \r\n"
+            mm[0:1000] = (' '*1000).encode()
+            mm[0:len(data)] = data.encode()
+            mm.close()
 
     def update_ball_holding(self):
         self.update_team_ball_holding(self.red_team)
@@ -2106,6 +2128,7 @@ class Referee:
             if hasattr(self.game, 'max_duration') and (time.time() - self.blackboard.start_real_time) > self.game.max_duration:
                 self.logger.info(f'Interrupting game automatically after {self.game.max_duration} seconds')
                 break
+            self.set_positions_shared_memory()
             self.print_status()
             self.game_controller_send(f'CLOCK:{self.sim_time.get_ms()}')
             self.game_controller_receive()
